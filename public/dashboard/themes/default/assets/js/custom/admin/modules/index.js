@@ -196,7 +196,6 @@ const Modules = (() => {
             });
         }
 
-        console.log("Project Type IDs:", projectTypeIds); // للتأكد
 
         // حدد الـ checkboxes
         document

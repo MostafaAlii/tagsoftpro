@@ -77,6 +77,21 @@
                     </ul>
                 </li>
                 <!-- End Modules -->
+                <!-- Start Projects -->
+                <li class="nav-item nav-hasmenu {{ is_open(['admin.projects.index']) }}">
+                    <a href="#!" class="nav-link"><span class="nav-icon"><i class="ti ti-folder-plus"></i></span><span
+                            class="nav-text">{{
+                            trans('dashboard/projects.projects') }}</span><span class="nav-arrow"><i
+                                data-feather="chevron-right"></i></span></a>
+                    <ul class="nav-submenu">
+                        <li class="nav-item">
+                            <a class="nav-link {{ is_active('admin.projects.index') }}" href="{{route('admin.projects.index')}}">{{
+                                trans('dashboard/projects.projects')
+                                }}</a>
+                        </li>
+                    </ul>
+                </li>
+                <!-- End Projects -->
                 <li class="nav-item nav-hasmenu {{ is_open(['admin.features.index']) }}">
                     <a href="#!" class="nav-link"><span class="nav-icon"><i class="ti ti-award"></i></span><span class="nav-text">{{
                             trans('dashboard/features.features') }}</span><span class="nav-arrow"><i
