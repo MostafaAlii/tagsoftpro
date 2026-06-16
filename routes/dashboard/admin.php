@@ -51,7 +51,9 @@ Route::group(
 
             Route::resource('projects', Dashboard\ProjectController::class);
             Route::patch('projects/{project}/toggle-status', [Dashboard\ProjectController::class, 'toggleStatus'])->name('projects.toggleStatus');
-            
+
+            Route::resource('departments', Dashboard\DepartmentController::class);
+            Route::patch('departments/{department}/toggle-status', [Dashboard\DepartmentController::class, 'toggleStatus'])->name('departments.toggleStatus');
         });
         require __DIR__ . '../../auth.php';
     }

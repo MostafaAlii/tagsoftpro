@@ -191,7 +191,7 @@ class ProjectDataTable extends BaseDataTable
         $columns = [
             ['name' => 'DT_RowIndex', 'data' => 'DT_RowIndex', 'title' => '#', 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
             ['name' => 'image', 'data' => 'image', 'title' => trans('dashboard/projects.image'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
-            ['name' => 'name', 'data' => 'name', 'title' => trans('dashboard/projects.name'), 'className' => 'text-center', 'searchable' => true, 'orderable' => true],
+            ['name' => 'name', 'data' => 'name', 'title' => trans('dashboard/projects.name'), 'className' => 'text-center', 'searchable' => true, 'orderable' => false],
             ['name' => 'description', 'data' => 'description', 'title' => trans('dashboard/projects.description'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
             ['name' => 'project_types', 'data' => 'project_types', 'title' => trans('dashboard/projects.project_types'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
             ['name' => 'modules', 'data' => 'modules', 'title' => trans('dashboard/projects.modules'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false],

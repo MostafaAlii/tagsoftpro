@@ -30,9 +30,22 @@
                     </ul>
                 </li>
                 <!-- End AdminPanelSetting -->
-                
-                    
                 @ownerOnly
+                <!-- Start Departments -->
+                <li class="nav-item nav-hasmenu {{ is_open(['admin.departments.index']) }}">
+                    <a href="#!" class="nav-link"><span class="nav-icon"><i class="ti ti-building"></i></span><span class="nav-text">{{
+                            trans('dashboard/departments.departments') }}</span><span class="nav-arrow"><i
+                                data-feather="chevron-right"></i></span></a>
+                    <ul class="nav-submenu">
+                        <li class="nav-item">
+                            <a class="nav-link {{ is_active('admin.departments.index') }}"
+                                href="{{route('admin.departments.index')}}">{{
+                                trans('dashboard/departments.departments')
+                                }}</a>
+                        </li>
+                    </ul>
+                </li>
+                <!-- End Departments -->
                 <!-- Start Client -->
                 <li class="nav-item nav-hasmenu {{ is_open(['admin.clients.index']) }}">
                     <a href="#!" class="nav-link"><span class="nav-icon"><i class="ti ti-award"></i></span><span class="nav-text">{{

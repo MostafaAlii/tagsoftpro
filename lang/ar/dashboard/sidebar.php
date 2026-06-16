@@ -7,4 +7,5 @@ return [
     'admin_client_sidebar_title' => ' العملاء',
     'client_sidebar_title' => 'العملاء',
     'client_page_title' => 'بيانات العملاء',
+    'departments' => 'الإدارات',
 ];
