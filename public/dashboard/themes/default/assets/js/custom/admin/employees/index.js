@@ -1,5 +1,4 @@
 "use strict";
-
 const Employees = (() => {
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -81,19 +80,66 @@ const Employees = (() => {
     const el = (id) => document.getElementById(id);
 
     const setBtnLoading = (btn, loading) => {
-        btn.querySelector(".indicator-label").classList.toggle(
-            "d-none",
-            loading,
-        );
-        btn.querySelector(".indicator-progress").classList.toggle(
-            "d-none",
-            !loading,
-        );
+        if (!btn) return;
+
+        const indicatorLabel = btn.querySelector(".indicator-label");
+        const indicatorProgress = btn.querySelector(".indicator-progress");
+
+        if (indicatorLabel) {
+            indicatorLabel.classList.toggle("d-none", loading);
+        }
+        if (indicatorProgress) {
+            indicatorProgress.classList.toggle("d-none", !loading);
+        }
         btn.disabled = loading;
     };
 
     const getModal = (id) => bootstrap.Modal.getOrCreateInstance(el(id));
     const hideModal = (id) => bootstrap.Modal.getInstance(el(id))?.hide();
+
+    // ─── Confirm Modal ──────────────────────────────────────────────────────────
+
+    let confirmCallback = null;
+
+    const showConfirmModal = (
+        title,
+        message,
+        confirmText = "تأكيد",
+        callback,
+    ) => {
+        document.getElementById("confirmActionTitle").textContent = title;
+        document.getElementById("confirmActionBody").textContent = message;
+        const confirmBtn = document.getElementById("confirmActionBtn");
+        confirmBtn.querySelector(".indicator-label").textContent = confirmText;
+        confirmBtn.classList.remove("btn-success", "btn-danger", "btn-primary");
+        confirmBtn.classList.add("btn-danger");
+
+        confirmCallback = callback;
+
+        const modal = new bootstrap.Modal(
+            document.getElementById("confirmActionModal"),
+        );
+        modal.show();
+    };
+
+    // ─── Handle Confirm Button Click ───────────────────────────────────────────
+
+    document.addEventListener("click", async function (e) {
+        const confirmBtn = e.target.closest("#confirmActionBtn");
+        if (!confirmBtn) return;
+
+        if (typeof confirmCallback === "function") {
+            setBtnLoading(confirmBtn, true);
+            await confirmCallback(confirmBtn);
+            setBtnLoading(confirmBtn, false);
+        }
+
+        const modal = bootstrap.Modal.getInstance(
+            document.getElementById("confirmActionModal"),
+        );
+        if (modal) modal.hide();
+        confirmCallback = null;
+    });
 
     // ─── Toggle Status ────────────────────────────────────────────────────────
 
@@ -311,6 +357,7 @@ const Employees = (() => {
                     Alert.success(data.message);
                     hideModal("deleteEmployeeModal");
                     reloadTable();
+                    setTimeout(checkTrashed, 500);
                 } else {
                     Alert.error(data.message || window.translations.error);
                 }
@@ -469,6 +516,101 @@ const Employees = (() => {
             });
     }
 
+    // ─── Check Trashed ──────────────────────────────────────────────────────────
+    const checkTrashed = () => {
+        fetch(window.routes.hasTrashed)
+            .then((response) => response.json())
+            .then((data) => {
+                const toggleBtn = document.getElementById("toggleTrashed");
+                if (data.hasTrashed) {
+                    toggleBtn.style.display = "inline-flex";
+                } else {
+                    toggleBtn.style.display = "none";
+                    if (window.showTrashed) {
+                        window.showTrashed = false;
+                        const btnText =
+                            document.getElementById("trashedBtnText");
+                        btnText.textContent = window.translations.show_trashed;
+                        const table =
+                            window.LaravelDataTables["employees_datatable"];
+                        table.ajax
+                            .url(window.routes.index + "?show_trashed=false")
+                            .load();
+                    }
+                }
+            })
+            .catch(() => {
+                document.getElementById("toggleTrashed").style.display = "none";
+            });
+    };
+    // ─── Restore ───────────────────────────────────────────────────────────────
+
+    const initRestore = () => {
+        document.addEventListener("click", async (e) => {
+            const btn = e.target.closest(".btn-restore");
+            if (!btn) return;
+            const route = btn.dataset.route;
+            showConfirmModal(
+                window.translations.restore || "استعادة",
+                window.translations.restore_confirm ||
+                    "هل أنت متأكد من استعادة هذا الموظف؟",
+                window.translations.restore || "استعادة",
+                async (confirmBtn) => {
+                    try {
+                        const res = await fetchJson(route, "PATCH");
+                        const data = await parseJson(res);
+                        if (data?.success) {
+                            Alert.success(data.message);
+                            reloadTable();
+                            setTimeout(checkTrashed, 500);
+                        } else {
+                            Alert.error(
+                                data?.message || window.translations.error,
+                            );
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        Alert.error(window.translations.error);
+                    }
+                },
+            );
+        });
+    };
+
+    // ─── Force Delete ───────────────────────────────────────────────────────────
+
+    const initForceDelete = () => {
+        document.addEventListener("click", async (e) => {
+            const btn = e.target.closest(".btn-force-delete");
+            if (!btn) return;
+            const route = btn.dataset.route;
+            showConfirmModal(
+                window.translations.force_delete || "حذف نهائي",
+                window.translations.force_delete_confirm ||
+                    "تحذير! هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟",
+                window.translations.force_delete || "حذف نهائي",
+                async (confirmBtn) => {
+                    try {
+                        const res = await fetchJson(route, "DELETE");
+                        const data = await parseJson(res);
+                        if (data?.success) {
+                            Alert.success(data.message);
+                            reloadTable();
+                            setTimeout(checkTrashed, 500);
+                        } else {
+                            Alert.error(
+                                data?.message || window.translations.error,
+                            );
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        Alert.error(window.translations.error);
+                    }
+                },
+            );
+        });
+    };
+
     // ─── Init ─────────────────────────────────────────────────────────────────
 
     const init = () => {
@@ -476,10 +618,16 @@ const Employees = (() => {
         initEdit();
         initDelete();
         initImagePreview();
+        initRestore();
+        initForceDelete();
+        setTimeout(() => {
+            checkTrashed();
+        }, 500);
     };
 
     return { init };
 })();
+
 window.openImageModal = function (src, title) {
     if (!src || src === "") {
         if (typeof Alert !== "undefined") {
@@ -525,4 +673,5 @@ window.openImageModal = function (src, title) {
             this.remove();
         });
 };
+
 document.addEventListener("DOMContentLoaded", Employees.init);

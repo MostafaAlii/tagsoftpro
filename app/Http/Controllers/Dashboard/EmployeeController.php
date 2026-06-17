@@ -45,4 +45,20 @@ class EmployeeController extends Controller
     {
         return $this->employeeInterface->destroy($employee);
     }
+
+    public function restore($id) {
+        return $this->employeeInterface->restore($id);
+    }
+
+    public function forceDelete($id) {
+        return $this->employeeInterface->forceDelete($id);
+    }
+
+    public function hasTrashed() {
+
+        $count = Employee::onlyTrashed()->count();
+        return response()->json([
+            'hasTrashed' => $count > 0
+        ]);
+    }
 }

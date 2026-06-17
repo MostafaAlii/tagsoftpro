@@ -11,18 +11,18 @@ use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
 use Yajra\DataTables\Utilities\Request as DataTableRequest;
 use App\Models\Concerns\UploadMedia;
-class EmployeeDataTable extends BaseDataTable
-{
+
+class EmployeeDataTable extends BaseDataTable {
     use UploadMedia;
     protected $customFilters = [];
-    public function __construct(DataTableRequest $request)
-    {
+    protected $showTrashed = false;
+    public function __construct(DataTableRequest $request) {
         parent::__construct(new Employee);
         $this->request = $request;
+        $this->showTrashed = $request->get('show_trashed', false) === 'true';
     }
 
-    public function dataTable($query): EloquentDataTable
-    {
+    public function dataTable($query): EloquentDataTable {
         $dataTable = (new EloquentDataTable($query))
             ->addColumn('action', function (Employee $employee) {
                 return view('dashboard.admin.employees.btn.actions', compact('employee'));
@@ -134,19 +134,20 @@ class EmployeeDataTable extends BaseDataTable
     }
 
     public function query(): QueryBuilder {
-        $query = Employee::query()
-            ->with(['department.translations', 'media'])
-            ->latest();
-
+        $query = Employee::query()->with(['department.translations', 'media']);
+        if ($this->showTrashed) {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+        }
+        $query->latest();
         if (EnsureOwner::check()) {
             $query->with(['company']);
         }
-
         return $query;
     }
 
-    public function html(): HtmlBuilder
-    {
+    public function html(): HtmlBuilder {
         return $this->builder()
             ->setTableId($this->model->getTable() . '_datatable')
             ->columns($this->getColumns())
@@ -156,8 +157,7 @@ class EmployeeDataTable extends BaseDataTable
             ]));
     }
 
-    private function getInitCompleteScript(): string
-    {
+    private function getInitCompleteScript(): string {
         $allText = trans('dashboard/general.all');
         $statuses = [
             'active' => trans('dashboard/employees.status_active'),
@@ -172,7 +172,6 @@ class EmployeeDataTable extends BaseDataTable
             'intern' => trans('dashboard/employees.type_intern'),
             'remote' => trans('dashboard/employees.type_remote'),
         ];
-
         $statusOptions = '';
         foreach ($statuses as $value => $label) {
             $statusOptions .= '<option value="' . $value . '">' . $label . '</option>';
@@ -249,7 +248,6 @@ class EmployeeDataTable extends BaseDataTable
         $columns[] = ['name' => 'created_at', 'data' => 'created_at', 'title' => trans('dashboard/general.created_at'), 'className' => 'text-center', 'searchable' => false];
         $columns[] = ['name' => 'updated_at', 'data' => 'updated_at', 'title' => trans('dashboard/general.updated_at'), 'className' => 'text-center', 'searchable' => false];
         $columns[] = ['name' => 'action', 'data' => 'action', 'title' => trans('dashboard/general.actions'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false];
-
         return $columns;
     }
 }

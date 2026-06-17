@@ -14,4 +14,6 @@ interface EmployeeRepositoryInterface
     public function edit(Employee $employee);
     public function toggleStatus(Employee $employee);
     public function destroy(Employee $employee);
+    public function restore($id);
+    public function forceDelete($id);
 }

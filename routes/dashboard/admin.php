@@ -55,8 +55,11 @@ Route::group(
             Route::resource('departments', Dashboard\DepartmentController::class);
             Route::patch('departments/{department}/toggle-status', [Dashboard\DepartmentController::class, 'toggleStatus'])->name('departments.toggleStatus');
 
-            Route::resource('employees', Dashboard\EmployeeController::class);
             Route::patch('employees/{employee}/toggle-status', [Dashboard\EmployeeController::class, 'toggleStatus'])->name('employees.toggleStatus');
+            Route::patch('employees/{employee}/restore', [Dashboard\EmployeeController::class, 'restore'])->name('employees.restore');
+            Route::delete('employees/{employee}/force-delete', [Dashboard\EmployeeController::class, 'forceDelete'])->name('employees.forceDelete');
+            Route::get('employees/has-trashed', [Dashboard\EmployeeController::class, 'hasTrashed'])->name('employees.hasTrashed');
+            Route::resource('employees', Dashboard\EmployeeController::class);
         });
         require __DIR__ . '../../auth.php';
     }

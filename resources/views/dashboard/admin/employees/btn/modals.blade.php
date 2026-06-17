@@ -211,3 +211,31 @@
         </div>
     </div>
 </div>
+
+
+{{-- ============================= --}}
+{{-- CONFIRM ACTION MODAL --}}
+{{-- ============================= --}}
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmActionTitle">تأكيد الإجراء</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="confirmActionBody">
+                هل أنت متأكد من هذا الإجراء؟
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-danger" id="confirmActionBtn">
+                    <span class="indicator-label">تأكيد</span>
+                    <span class="indicator-progress d-none">
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        جاري...
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

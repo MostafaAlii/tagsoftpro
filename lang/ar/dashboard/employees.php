@@ -59,4 +59,13 @@ return [
     ],
     'avatar' => 'الصوره الشخصيه',
     'no_avatar' => 'لا يوجد صوره لعرضها',
+    'show_trashed' => 'عرض المهملات',
+    'show_active' => 'عرض النشطين',
+
+    'restore' => 'استعادة',
+    'force_delete' => 'حذف نهائي',
+    'restored_successfully' => 'تم استعادة الموظف بنجاح',
+    'permanently_deleted' => 'تم حذف الموظف نهائياً',
+    'restore_confirm' => 'هل أنت متأكد من استعادة هذا الموظف؟',
+    'force_delete_confirm' => 'تحذير! هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد من الحذف النهائي؟',
 ];
