@@ -24,10 +24,22 @@
                 </div>
 
                 {{-- Form --}}
-                <form id="editEmployeeForm" class="d-none">
+                <form id="editEmployeeForm" class="d-none" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="editEmployeeId">
-
+                    {{-- Avatar --}}
+                    <div class="col-md-12">
+                        <div class="p-3 text-center border rounded">
+                            <label for="editEmployeeInput" class="form-label fw-bold">{{ trans('dashboard/employees.avatar') }}</label>
+                            <input class="form-control" type="file" name="employee" id="editEmployeeInput" accept="image/*">
+                            <div class="mt-2">
+                                <img id="editEmployeePreview" src="" alt=""
+                                    style="display: none; width: 100px; height: 100px; object-fit: cover; border-radius: 50%; border: 2px solid #e0e0e0; cursor: pointer;"
+                                    onclick="window.openImageModal(this.src, '{{ trans('dashboard/employees.avatar') }}')">
+                                <span id="editEmployeePlaceholder" class="text-muted">{{ trans('dashboard/employees.no_avatar') }}</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row g-3">
                         {{-- Name --}}
                         <div class="col-md-6">

@@ -84,15 +84,14 @@ class ProjectDataTable extends BaseDataTable
      */
     private function renderImage(Project $project): string
     {
-        // ✅ استخدم getMediaUrl من الـ Trait
         $imageUrl = $this->getMediaUrl('project', $project, null, 'media', 'project');
 
         if ($imageUrl) {
             return '
-                <img src="' . $imageUrl . '" 
-                     alt="' . e($project->getTranslatedName()) . '" 
-                     width="50" 
-                     height="50" 
+                <img src="' . $imageUrl . '"
+                     alt="' . e($project->getTranslatedName()) . '"
+                     width="50"
+                     height="50"
                      style="object-fit: cover; border-radius: 4px; cursor: pointer;"
                      onclick="openImageModal(\'' . $imageUrl . '\', \'' . e($project->getTranslatedName()) . '\')">
             ';
@@ -109,7 +108,7 @@ class ProjectDataTable extends BaseDataTable
         return '
             <div class="gap-1 d-flex flex-column align-items-center">
                 <span class="badge-status">' . $project->status->badge() . '</span>
-                <button type="button" 
+                <button type="button"
                         class="btn btn-sm btn-outline-secondary toggle-status"
                         data-id="' . $project->id . '"
                         data-route="' . route('admin.projects.toggleStatus', $project->id) . '"

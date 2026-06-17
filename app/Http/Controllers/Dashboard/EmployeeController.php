@@ -33,7 +33,7 @@ class EmployeeController extends Controller
 
     public function update(Request $request, Employee $employee)
     {
-        return $this->employeeInterface->update($employee, $request->all());
+        return $this->employeeInterface->update($employee, $request->all(), $request);
     }
 
     public function toggleStatus(Employee $employee)

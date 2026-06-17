@@ -6,9 +6,22 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
-            <form action="{{ route('admin.employees.store') }}" method="POST" id="createForm">
+            <form action="{{ route('admin.employees.store') }}" method="POST" id="createForm" enctype="multipart/form-data">
                 @csrf
                 <div class="modal-body">
+                    {{-- Avatar --}}
+                    <div class="col-md-12">
+                        <div class="p-3 text-center border rounded">
+                            <label for="employeeInput" class="form-label fw-bold">{{ trans('dashboard/employees.avatar') }}</label>
+                            <input class="form-control" type="file" name="employee" id="employeeInput" accept="image/*">
+                            <div class="mt-2">
+                                <img id="employeePreview" src="" alt=""
+                                    style="display: none; width: 100px; height: 100px; object-fit: cover; border-radius: 50%; border: 2px solid #e0e0e0; cursor: pointer;"
+                                    onclick="window.openImageModal(this.src, '{{ trans('dashboard/employees.avatar') }}')">
+                                <span id="employeePlaceholder" class="text-muted">{{ trans('dashboard/employees.no_avatar') }}</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row g-3">
                         {{-- Name --}}
                         <div class="col-md-6">

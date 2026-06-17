@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
 use Yajra\DataTables\Utilities\Request as DataTableRequest;
-
+use App\Models\Concerns\UploadMedia;
 class EmployeeDataTable extends BaseDataTable
 {
+    use UploadMedia;
     protected $customFilters = [];
-
     public function __construct(DataTableRequest $request)
     {
         parent::__construct(new Employee);
@@ -26,6 +26,9 @@ class EmployeeDataTable extends BaseDataTable
         $dataTable = (new EloquentDataTable($query))
             ->addColumn('action', function (Employee $employee) {
                 return view('dashboard.admin.employees.btn.actions', compact('employee'));
+            })
+            ->addColumn('employee', function (Employee $employee) {
+                return $this->renderAvatar($employee);
             })
             ->editColumn('name', function (Employee $employee) {
                 return $employee->name;
@@ -82,16 +85,40 @@ class EmployeeDataTable extends BaseDataTable
             ->editColumn('created_at', fn(Employee $employee) => $this->formatTranslatedDate($employee->created_at))
             ->editColumn('updated_at', fn(Employee $employee) => $this->formatTranslatedDate($employee->updated_at))
             ->addIndexColumn()
-            ->rawColumns(['action', 'email', 'status', 'type', 'created_at', 'updated_at']);
+            ->rawColumns(['action', 'email', 'employee', 'status', 'type', 'created_at', 'updated_at']);
 
         return $dataTable;
     }
 
     /**
+     * Render avatar image
+     */
+    private function renderAvatar(Employee $employee): string {
+        $imageUrl = $this->getMediaUrl('employee', $employee, null, 'media', 'employee');
+        if ($imageUrl) {
+            return '
+                <img src="' . $imageUrl . '"
+                     alt="' . e($employee->name) . '"
+                     width="40"
+                     height="40"
+                     style="object-fit: cover; border-radius: 50%; cursor: pointer; border: 2px solid #e0e0e0;"
+                     onclick="window.openImageModal(\'' . $imageUrl . '\', \'' . e($employee->name) . '\')">
+            ';
+        }
+
+        $initials = strtoupper(substr($employee->name, 0, 2));
+        return '
+            <div class="avatar-placeholder"
+                 style="width: 40px; height: 40px; border-radius: 50%; background: #e9ecef; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #6c757d; font-size: 14px; margin: 0 auto;">
+                ' . $initials . '
+            </div>
+        ';
+    }
+
+    /**
      * Render status badge with toggle button
      */
-    private function renderStatusBadge(Employee $employee): string
-    {
+    private function renderStatusBadge(Employee $employee): string {
         return '
             <div class="gap-1 d-flex flex-column align-items-center">
                 <span class="badge-status">' . $employee->status->badge() . '</span>
@@ -106,10 +133,9 @@ class EmployeeDataTable extends BaseDataTable
         ';
     }
 
-    public function query(): QueryBuilder
-    {
+    public function query(): QueryBuilder {
         $query = Employee::query()
-            ->with(['department.translations'])
+            ->with(['department.translations', 'media'])
             ->latest();
 
         if (EnsureOwner::check()) {
@@ -162,7 +188,7 @@ class EmployeeDataTable extends BaseDataTable
             var api = this.api();
 
             // ─── Search box بالاسم ──────────────────────────
-            var nameColIndex = 1;
+            var nameColIndex = 2;
             var nameHeader = $(api.column(nameColIndex).header());
             var nameInput = $(\'<input type="text" class="mt-1 form-control form-control-sm" placeholder="' . trans('dashboard/employees.name') . '...">\');
             nameHeader.append(nameInput);
@@ -173,7 +199,7 @@ class EmployeeDataTable extends BaseDataTable
             });
 
             // ─── فلتر Status ──────────────────────────────
-            var statusColIndex = 4;
+            var statusColIndex = 5;
             var statusHeader = $(api.column(statusColIndex).header());
             var statusSelect = $(\'<select class="mt-1 form-select form-select-sm">\' +
                 \'<option value="">' . $allText . '</option>\' +
@@ -187,7 +213,7 @@ class EmployeeDataTable extends BaseDataTable
             });
 
             // ─── فلتر Type ──────────────────────────────────
-            var typeColIndex = 5;
+            var typeColIndex = 6;
             var typeHeader = $(api.column(typeColIndex).header());
             var typeSelect = $(\'<select class="mt-1 form-select form-select-sm">\' +
                 \'<option value="">' . $allText . '</option>\' +
@@ -206,6 +232,7 @@ class EmployeeDataTable extends BaseDataTable
     {
         $columns = [
             ['name' => 'DT_RowIndex', 'data' => 'DT_RowIndex', 'title' => '#', 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
+            ['name' => 'employee', 'data' => 'employee', 'title' => trans('dashboard/employees.avatar'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
             ['name' => 'name', 'data' => 'name', 'title' => trans('dashboard/employees.name'), 'className' => 'text-center', 'searchable' => true, 'orderable' => true],
             ['name' => 'email', 'data' => 'email', 'title' => trans('dashboard/employees.email'), 'className' => 'text-center', 'searchable' => true, 'orderable' => true],
             ['name' => 'phone', 'data' => 'phone', 'title' => trans('dashboard/employees.phone'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false],

@@ -144,6 +144,36 @@ const Employees = (() => {
         el("edit_date").value = data.date ?? "";
         el("edit_department_id").value = data.department_id ?? "";
         el("edit_company_id").value = data.company_id ?? "";
+
+        // ✅ عرض الصورة القديمة
+        const editPreview = document.getElementById("editEmployeePreview");
+        const editPlaceholder = document.getElementById(
+            "editEmployeePlaceholder",
+        );
+
+        if (data.media && data.media.length > 0) {
+            const mainMedia = data.media.find(
+                (m) => m.collection_name === "employee",
+            );
+            if (mainMedia) {
+                const baseFolder = "uploads/employee";
+                const imageUrl =
+                    mainMedia.disk === "direct_public"
+                        ? `/${baseFolder}/${mainMedia.file_name}`
+                        : `/storage/${baseFolder}/${mainMedia.file_name}`;
+                editPreview.src = imageUrl;
+                editPreview.style.display = "block";
+                if (editPlaceholder) editPlaceholder.style.display = "none";
+            } else {
+                editPreview.src = "";
+                editPreview.style.display = "none";
+                if (editPlaceholder) editPlaceholder.style.display = "inline";
+            }
+        } else {
+            editPreview.src = "";
+            editPreview.style.display = "none";
+            if (editPlaceholder) editPlaceholder.style.display = "inline";
+        }
     };
 
     const initEdit = () => {
@@ -179,38 +209,52 @@ const Employees = (() => {
         // Save edit
         document.addEventListener("click", async (e) => {
             if (!e.target.closest("#saveEditEmployee")) return;
-
             const saveBtn = el("saveEditEmployee");
             const id = el("editEmployeeId").value;
             const form = el("editEmployeeForm");
-
             if (!id) {
                 Alert.error(window.translations.error);
                 return;
             }
 
-            const payload = {
-                name: form.querySelector('[name="name"]')?.value,
-                email: form.querySelector('[name="email"]')?.value,
-                phone: form.querySelector('[name="phone"]')?.value,
-                status: form.querySelector('[name="status"]')?.value,
-                type: form.querySelector('[name="type"]')?.value,
-                password: form.querySelector('[name="password"]')?.value,
-                date: form.querySelector('[name="date"]')?.value,
-                department_id: form.querySelector('[name="department_id"]')
-                    ?.value,
-                company_id: form.querySelector('[name="company_id"]')?.value,
-            };
+            const formData = new FormData();
+            formData.append("_method", "PUT");
+            formData.append("_token", csrfToken());
+            const fields = [
+                "name",
+                "email",
+                "phone",
+                "status",
+                "type",
+                "password",
+                "date",
+                "department_id",
+                "company_id",
+            ];
+            fields.forEach((field) => {
+                const input = form.querySelector(`[name="${field}"]`);
+                if (input) {
+                    formData.append(field, input.value ?? "");
+                }
+            });
+
+            const imageInput = form.querySelector('[name="employee"]');
+            if (imageInput && imageInput.files.length > 0) {
+                formData.append("employee", imageInput.files[0]);
+            }
 
             setBtnLoading(saveBtn, true);
 
             try {
-                const res = await fetchJson(
-                    route("update", id),
-                    "PUT",
-                    payload,
-                );
-                const data = await parseJson(res);
+                const response = await fetch(route("update", id), {
+                    method: "POST",
+                    headers: {
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    body: formData,
+                });
+                const data = await parseJson(response);
 
                 if (data?.success) {
                     Alert.success(data.message);
@@ -284,15 +328,201 @@ const Employees = (() => {
         });
     };
 
+    // ─── Image Preview ──────────────────────────────────────────────────────
+
+    const initImagePreview = () => {
+        // Create Modal Preview
+        const createInput = document.getElementById("employeeInput");
+        const createPreview = document.getElementById("employeePreview");
+        const createPlaceholder = document.getElementById(
+            "employeePlaceholder",
+        );
+
+        if (createInput) {
+            createInput.addEventListener("change", function (e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (event) {
+                        createPreview.src = event.target.result;
+                        createPreview.style.display = "block";
+                        if (createPlaceholder)
+                            createPlaceholder.style.display = "none";
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    createPreview.src = "";
+                    createPreview.style.display = "none";
+                    if (createPlaceholder)
+                        createPlaceholder.style.display = "inline";
+                }
+            });
+        }
+
+        // Edit Modal Preview
+        document.addEventListener("change", function (e) {
+            const editInput = e.target.closest("#editEmployeeInput");
+            if (!editInput) return;
+
+            const editPreview = document.getElementById("editEmployeePreview");
+            const editPlaceholder = document.getElementById(
+                "editEmployeePlaceholder",
+            );
+
+            const file = editInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    editPreview.src = event.target.result;
+                    editPreview.style.display = "block";
+                    if (editPlaceholder) editPlaceholder.style.display = "none";
+                };
+                reader.readAsDataURL(file);
+            } else {
+                editPreview.src = "";
+                editPreview.style.display = "none";
+                if (editPlaceholder) editPlaceholder.style.display = "inline";
+            }
+        });
+
+        // Reset on modal close
+        const createModal = document.getElementById("createEmployeeModal");
+        if (createModal) {
+            createModal.addEventListener("hidden.bs.modal", function () {
+                const input = document.getElementById("employeeInput");
+                const preview = document.getElementById("employeePreview");
+                const placeholder = document.getElementById(
+                    "employeePlaceholder",
+                );
+                if (input) input.value = "";
+                if (preview) {
+                    preview.src = "";
+                    preview.style.display = "none";
+                }
+                if (placeholder) placeholder.style.display = "inline";
+            });
+        }
+
+        const editModal = document.getElementById("editEmployeeModal");
+        if (editModal) {
+            editModal.addEventListener("hidden.bs.modal", function () {
+                const input = document.getElementById("editEmployeeInput");
+                const preview = document.getElementById("editEmployeePreview");
+                const placeholder = document.getElementById(
+                    "editEmployeePlaceholder",
+                );
+                if (input) input.value = "";
+                if (preview) {
+                    preview.src = "";
+                    preview.style.display = "none";
+                }
+                if (placeholder) placeholder.style.display = "inline";
+            });
+        }
+    };
+
+    // ─── Open Image Modal ──────────────────────────────────────────────────
+
+    function openImageModal(src, title) {
+        if (!src || src === "") {
+            if (typeof Alert !== "undefined") {
+                Alert.warning("لا توجد صورة لعرضها");
+            }
+            return;
+        }
+
+        const modalHtml = `
+            <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${title || "الصوره"}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <img src="${src}" alt="الصوره" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const existingModal = document.getElementById("imagePreviewModal");
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+        const modal = new bootstrap.Modal(
+            document.getElementById("imagePreviewModal"),
+        );
+        modal.show();
+
+        document
+            .getElementById("imagePreviewModal")
+            .addEventListener("hidden.bs.modal", function () {
+                this.remove();
+            });
+    }
+
     // ─── Init ─────────────────────────────────────────────────────────────────
 
     const init = () => {
         initToggleStatus();
         initEdit();
         initDelete();
+        initImagePreview();
     };
 
     return { init };
 })();
+window.openImageModal = function (src, title) {
+    if (!src || src === "") {
+        if (typeof Alert !== "undefined") {
+            Alert.warning("لا توجد صورة لعرضها");
+        }
+        return;
+    }
 
+    const modalHtml = `
+        <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${title || "الصوره"}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="${src}" alt="الصوره" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const existingModal = document.getElementById("imagePreviewModal");
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    const modal = new bootstrap.Modal(
+        document.getElementById("imagePreviewModal"),
+    );
+    modal.show();
+
+    document
+        .getElementById("imagePreviewModal")
+        .addEventListener("hidden.bs.modal", function () {
+            this.remove();
+        });
+};
 document.addEventListener("DOMContentLoaded", Employees.init);

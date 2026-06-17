@@ -99,6 +99,10 @@ class Employee extends Authenticatable {
         return $this->morphMany(Media::class, 'mediable');
     }
 
+    public function getImageUrl(): ?string {
+        return $this->getMediaUrl('employee', $this, null, 'media', 'employee');
+    }
+
     // ─── Methods ──────────────────────────────────────────────
     public function getStatusBadge(): string
     {
