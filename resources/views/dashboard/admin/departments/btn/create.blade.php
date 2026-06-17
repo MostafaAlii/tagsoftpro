@@ -42,7 +42,7 @@
 
                     @ownerOnly
                     <div class="row">
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">{{ trans('dashboard/departments.company') }}</label>
                                 <select name="company_id" class="form-select">

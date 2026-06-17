@@ -9,13 +9,13 @@
 @section('content')
 <div class="page-content">
     <div class="content-header">
-        <h1 class="mb-0">{{ trans('dashboard/departments.departments') }}</h1>
+        <h1 class="mb-0">{{ trans('dashboard/employees.employees') }}</h1>
         <ul class="breadcrumb">
             <li class="breadcrumb-item">
                 <a href="{{ route('admin.dashboard') }}">{{ trans('dashboard/header.main_dashboard') }}</a>
             </li>
             <li class="breadcrumb-item">
-                <a href="{{ route('admin.departments.index') }}">{{ trans('dashboard/departments.departments') }}</a>
+                <a href="{{ route('admin.employees.index') }}">{{ trans('dashboard/employees.employees') }}</a>
             </li>
         </ul>
     </div>
@@ -25,20 +25,16 @@
             <div class="card">
                 <div class="card-header">
                     <span class="nav-icon">
-                        <i class="ti ti-building"></i>
+                        <i class="ti ti-users"></i>
                     </span>
-                    {{ trans('dashboard/departments.departments') }}
+                    {{ trans('dashboard/employees.employees') }}
                     <button data-pc-animate="3d-sign" type="button" class="btn btn-sm btn-light btn-active-primary"
-                        data-bs-toggle="modal" data-bs-target="#createDepartmentModal">
+                        data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
                         <i class="fa fa-plus"></i>
-                        {{ trans('dashboard/departments.create') }}
+                        {{ trans('dashboard/employees.create') }}
                     </button>
 
-                    @php
-                    $locales = array_keys(config('laravellocalization.supportedLocales'));
-                    $currentLocale = app()->getLocale();
-                    @endphp
-                    @include('dashboard.admin.departments.btn.create', compact('locales', 'currentLocale'))
+                    @include('dashboard.admin.employees.btn.create', compact('companies', 'departments'))
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -58,17 +54,13 @@
 <script>
     window.translations = {
         error: "{{ trans('dashboard/general.error_occurred') }}",
-        active: "{{ trans('dashboard/general.active') }}",
-        inactive: "{{ trans('dashboard/general.in_active') }}",
     };
-    window.locales = @json(array_keys(config('laravellocalization.supportedLocales')));
     window.routes = {
-        edit: "{{ route('admin.departments.edit', ['department' => '__ID__']) }}",
-        update: "{{ route('admin.departments.update', ['department' => '__ID__']) }}",
-        destroy: "{{ route('admin.departments.destroy', ['department' => '__ID__']) }}",
+        edit: "{{ route('admin.employees.edit', ['employee' => '__ID__']) }}",
+        update: "{{ route('admin.employees.update', ['employee' => '__ID__']) }}",
+        destroy: "{{ route('admin.employees.destroy', ['employee' => '__ID__']) }}",
     };
 </script>
 <script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/utils/alert.js') }}"></script>
-<script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/admin/departments/index.js') }}?v={{ time() }}">
-</script>
+<script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/admin/employees/index.js') }}?v={{ time() }}"></script>
 @endpush

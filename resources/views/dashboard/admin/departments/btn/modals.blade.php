@@ -21,7 +21,7 @@ $locales = array_keys(config('laravellocalization.supportedLocales'));
             <div class="modal-body">
 
                 {{-- Loader --}}
-                <div id="editModalLoader" class="text-center py-5">
+                <div id="editModalLoader" class="py-5 text-center">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
@@ -40,7 +40,7 @@ $locales = array_keys(config('laravellocalization.supportedLocales'));
                                 {{ trans('dashboard/departments.name') }} <span class="text-danger">*</span>
                             </label>
 
-                            <ul class="nav nav-tabs nav-tabs-bordered mb-3" id="editLangTabs" role="tablist">
+                            <ul class="mb-3 nav nav-tabs nav-tabs-bordered" id="editLangTabs" role="tablist">
                                 @foreach($locales as $index => $locale)
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link {{ $index === 0 ? 'active' : '' }}"
@@ -73,7 +73,7 @@ $locales = array_keys(config('laravellocalization.supportedLocales'));
 
                         {{-- Company --}}
                         @ownerOnly
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">{{ trans('dashboard/departments.company') }}</label>
                                 <select class="form-select" name="company_id" id="edit_company_id">
@@ -131,11 +131,11 @@ $locales = array_keys(config('laravellocalization.supportedLocales'));
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
 
-            <div class="modal-header border-0 pb-0">
+            <div class="pb-0 border-0 modal-header">
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <div class="modal-body text-center px-4 pb-2">
+            <div class="px-4 pb-2 text-center modal-body">
                 <div class="mb-3">
                     <span
                         class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center"
@@ -143,16 +143,16 @@ $locales = array_keys(config('laravellocalization.supportedLocales'));
                         <i class="ti ti-trash fs-2"></i>
                     </span>
                 </div>
-                <h5 class="fw-bold mb-1">{{ trans('dashboard/general.delete_confirm_title') }}</h5>
-                <p class="text-muted mb-0">{{ trans('dashboard/general.delete_confirm_text') }}</p>
+                <h5 class="mb-1 fw-bold">{{ trans('dashboard/general.delete_confirm_title') }}</h5>
+                <p class="mb-0 text-muted">{{ trans('dashboard/general.delete_confirm_text') }}</p>
             </div>
 
-            <div class="modal-footer justify-content-center border-0 pt-2">
+            <div class="pt-2 border-0 modal-footer justify-content-center">
                 <input type="hidden" id="deleteDepartmentId">
-                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">
+                <button type="button" class="px-4 btn btn-secondary" data-bs-dismiss="modal">
                     {{ trans('dashboard/general.cancel') }}
                 </button>
-                <button type="button" class="btn btn-danger px-4" id="confirmDeleteDepartment">
+                <button type="button" class="px-4 btn btn-danger" id="confirmDeleteDepartment">
                     <span class="indicator-label">
                         <i class="ti ti-trash me-1"></i>
                         {{ trans('dashboard/general.delete') }}

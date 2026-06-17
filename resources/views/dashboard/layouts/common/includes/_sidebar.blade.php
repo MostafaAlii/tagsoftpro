@@ -46,6 +46,20 @@
                     </ul>
                 </li>
                 <!-- End Departments -->
+                <!-- Start Employees -->
+                <li class="nav-item nav-hasmenu {{ is_open(['admin.employees.index']) }}">
+                    <a href="#!" class="nav-link"><span class="nav-icon"><i class="ti ti-users"></i></span><span class="nav-text">{{
+                            trans('dashboard/employees.employees') }}</span><span class="nav-arrow"><i
+                                data-feather="chevron-right"></i></span></a>
+                    <ul class="nav-submenu">
+                        <li class="nav-item">
+                            <a class="nav-link {{ is_active('admin.employees.index') }}" href="{{route('admin.employees.index')}}">{{
+                                trans('dashboard/employees.employees')
+                                }}</a>
+                        </li>
+                    </ul>
+                </li>
+                <!-- End Employees -->
                 <!-- Start Client -->
                 <li class="nav-item nav-hasmenu {{ is_open(['admin.clients.index']) }}">
                     <a href="#!" class="nav-link"><span class="nav-icon"><i class="ti ti-award"></i></span><span class="nav-text">{{
