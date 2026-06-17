@@ -5,6 +5,7 @@ namespace App\Repositories\Contracts;
 use App\DataTables\Dashboard\Admin\EmployeeDataTable;
 use App\Models\Employee;
 use App\Http\Requests\Dashboard\Employee\StoreEmployeeRequest;
+use Illuminate\Http\Request;
 
 interface EmployeeRepositoryInterface
 {
@@ -16,4 +17,5 @@ interface EmployeeRepositoryInterface
     public function destroy(Employee $employee);
     public function restore($id);
     public function forceDelete($id);
+    public function bulkAction(Request $request);
 }

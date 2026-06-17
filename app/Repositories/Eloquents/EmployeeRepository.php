@@ -205,4 +205,50 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
             ], 500);
         }
     }
+
+    public function bulkAction(Request $request) {
+        
+        try {
+            $ids = $request->ids;
+            $action = $request->action;
+            $status = $request->status;
+
+            if (empty($ids)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trans('dashboard/employees.bulk_select_at_least_one'),
+                ]);
+            }
+
+            switch ($action) {
+                case 'status':
+                    Employee::whereIn('id', $ids)->update(['status' => $status]);
+                    $message = trans('dashboard/employees.bulk_status_updated');
+                    break;
+                case 'delete':
+                    $employees = Employee::whereIn('id', $ids)->get();
+                    foreach ($employees as $employee) {
+                        $this->deleteExistingMedia('employee', $employee, null, 'media', true, 'employee');
+                    }
+                    Employee::whereIn('id', $ids)->delete();
+                    $message = trans('dashboard/employees.bulk_deleted');
+                    break;
+                default:
+                    return response()->json([
+                        'success' => false,
+                        'message' => trans('dashboard/general.error_occurred'),
+                    ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

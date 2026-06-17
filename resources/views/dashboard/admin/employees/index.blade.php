@@ -1,6 +1,29 @@
 @extends('dashboard.layouts.master')
-@section('css')
-@endsection
+@push('css')
+<style>
+    .dt-button-collection {
+        border-radius: 10px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+        border: 1px solid #e0e0e0 !important;
+        min-width: 200px !important;
+        z-index: 99999 !important;
+        position: absolute !important;
+        margin-top: 5px !important;
+    }
+
+    /* الـ wrapper بتاع الـ buttons يكون relative */
+    .dt-buttons {
+        position: relative !important;
+    }
+
+    .dataTables_wrapper,
+    .card-header,
+    .card,
+    .table-responsive {
+        overflow: visible !important;
+    }
+</style>
+@endpush
 
 @section('title')
 {{ $title }}
@@ -35,7 +58,8 @@
                             <i class="fa fa-plus"></i>
                             {{ trans('dashboard/employees.create') }}
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger btn-active-primary" id="toggleTrashed" style="display: none;">
+                        <button type="button" class="btn btn-sm btn-danger btn-active-primary" id="toggleTrashed"
+                            style="display: none;">
                             <i class="ti ti-trash me-1"></i>
                             <span id="trashedBtnText">{{ trans('dashboard/employees.show_trashed') }}</span>
                         </button>
@@ -67,7 +91,15 @@
         force_delete_confirm: "{{ trans('dashboard/employees.force_delete_confirm') }}",
         show_active: "{{ trans('dashboard/employees.show_active') }}",
         show_trashed: "{{ trans('dashboard/employees.show_trashed') }}",
+        bulk_select_at_least_one: "{{ trans('dashboard/employees.bulk_select_at_least_one') }}",
+        bulk_status_confirm: "{{ trans('dashboard/employees.bulk_status_confirm') }}",
+        bulk_delete_confirm: "{{ trans('dashboard/employees.bulk_delete_confirm') }}",
+        bulk_change_status: "{{ trans('dashboard/employees.bulk_change_status') }}",
+        delete_selected: "{{ trans('dashboard/general.delete_selected') }}",
+        confirm: "{{ trans('dashboard/general.confirm') }}",
+        delete: "{{ trans('dashboard/general.delete') }}",
     };
+
     window.routes = {
         index: "{{ route('admin.employees.index') }}",
         edit: "{{ route('admin.employees.edit', ['employee' => '__ID__']) }}",
@@ -76,13 +108,16 @@
         restore: "{{ route('admin.employees.restore', ['employee' => '__ID__']) }}",
         forceDelete: "{{ route('admin.employees.forceDelete', ['employee' => '__ID__']) }}",
         hasTrashed: "{{ route('admin.employees.hasTrashed') }}",
+        bulkAction: "{{ route('admin.employees.bulkAction') }}",
     };
+
     window.showTrashed = false;
+
     document.getElementById('toggleTrashed')?.addEventListener('click', function() {
-        showTrashed = !showTrashed;
+        window.showTrashed = !window.showTrashed;
         const btnText = document.getElementById('trashedBtnText');
         const table = window.LaravelDataTables['employees_datatable'];
-        if (showTrashed) {
+        if (window.showTrashed) {
             btnText.textContent = window.translations.show_active;
             table.ajax.url(window.routes.index + '?show_trashed=true').load();
         } else {
@@ -104,20 +139,27 @@
         const modal = new bootstrap.Modal(document.getElementById('confirmActionModal'));
         modal.show();
     };
-    // ─── Handle Confirm Button Click ───────────────────────────────────────────
+
     document.addEventListener('click', async function(e) {
         const confirmBtn = e.target.closest('#confirmActionBtn');
         if (!confirmBtn) return;
         if (typeof confirmCallback === 'function') {
-            setBtnLoading(confirmBtn, true);
-            await confirmCallback(confirmBtn);
-            setBtnLoading(confirmBtn, false);
+            // ✅ استخدم setBtnLoading من index.js
+            if (typeof setBtnLoading === 'function') {
+                setBtnLoading(confirmBtn, true);
+                await confirmCallback(confirmBtn);
+                setBtnLoading(confirmBtn, false);
+            } else {
+                await confirmCallback(confirmBtn);
+            }
         }
         const modal = bootstrap.Modal.getInstance(document.getElementById('confirmActionModal'));
-            if (modal) modal.hide();
-            confirmCallback = null;
+        if (modal) modal.hide();
+        confirmCallback = null;
     });
 </script>
 <script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/utils/alert.js') }}"></script>
-<script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/admin/employees/index.js') }}?v={{ time() }}"></script>
+<script
+    src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/admin/employees/index.js') }}?v={{ time() }}">
+</script>
 @endpush

@@ -61,4 +61,9 @@ class EmployeeController extends Controller
             'hasTrashed' => $count > 0
         ]);
     }
+
+    public function bulkAction(Request $request)
+    {
+        return $this->employeeInterface->bulkAction($request);
+    }
 }

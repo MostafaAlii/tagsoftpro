@@ -239,3 +239,45 @@
         </div>
     </div>
 </div>
+
+{{-- ============================= --}}
+{{-- BULK ACTION MODAL --}}
+{{-- ============================= --}}
+<div class="modal fade" id="bulkActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkActionModalTitle">تأكيد الإجراء</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="bulkActionMessage">هل أنت متأكد من هذا الإجراء؟</p>
+                <div id="bulkStatusDropdown" style="display: none;">
+                    <label class="mb-2 fw-bold">{{ trans('dashboard/employees.select_status') }}</label>
+                    <select class="form-select" id="bulkStatusSelect">
+                        <option value="active">{{ trans('dashboard/employees.status_active') }}</option>
+                        <option value="inactive">{{ trans('dashboard/employees.status_inactive') }}</option>
+                        <option value="on_leave">{{ trans('dashboard/employees.status_on_leave') }}</option>
+                        <option value="terminated">{{ trans('dashboard/employees.status_terminated') }}</option>
+                    </select>
+                </div>
+                <div class="mt-3">
+                    <label class="fw-bold">{{ trans('dashboard/employees.selected_employees') }}</label>
+                    <div id="bulkActionEmployeeList" class="mt-2" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('dashboard/general.cancel') }}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmBulkAction">
+                    <span class="indicator-label">{{ trans('dashboard/general.confirm') }}</span>
+                    <span class="indicator-progress d-none">
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        {{ trans('dashboard/general.loading') }}
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

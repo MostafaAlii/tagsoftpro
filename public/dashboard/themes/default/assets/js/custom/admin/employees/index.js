@@ -1,4 +1,140 @@
 "use strict";
+
+// ─── Bulk Actions Global Variables ──────────────────────────────────────────
+
+var bulkActionData = null;
+var bulkActionType = null;
+
+function getSelectedEmployeeNames(checkboxes) {
+    const names = [];
+    checkboxes.forEach((cb) => {
+        const row = cb.closest("tr");
+        const nameCell = row?.querySelector("td:nth-child(4)");
+        if (nameCell) {
+            names.push(nameCell.textContent.trim());
+        }
+    });
+    return names.map((name) =>
+        `<span class="badge bg-secondary me-1 mb-1 p-2">${name}</span>`
+    ).join("");
+}
+
+function openBulkStatusModal() {
+    const checkboxes = document.querySelectorAll(".row-checkbox:checked");
+    const ids = Array.from(checkboxes).map((cb) => parseInt(cb.value));
+
+    if (ids.length === 0) {
+        Alert.warning(window.translations.bulk_select_at_least_one);
+        return;
+    }
+
+    const employeeNames = getSelectedEmployeeNames(checkboxes);
+
+    document.getElementById("bulkActionModalTitle").textContent = window.translations.bulk_change_status;
+    document.getElementById("bulkActionMessage").textContent = window.translations.bulk_status_confirm;
+    document.getElementById("bulkStatusDropdown").style.display = "block";
+    document.getElementById("bulkActionEmployeeList").innerHTML = employeeNames;
+
+    bulkActionData = { ids: ids };
+    bulkActionType = "status";
+
+    const confirmBtn = document.getElementById("confirmBulkAction");
+    confirmBtn.className = "btn btn-success";
+    confirmBtn.querySelector(".indicator-label").textContent = window.translations.confirm;
+
+    const modal = new bootstrap.Modal(document.getElementById("bulkActionModal"));
+    modal.show();
+}
+
+function openBulkDeleteModal() {
+    const checkboxes = document.querySelectorAll(".row-checkbox:checked");
+    const ids = Array.from(checkboxes).map((cb) => parseInt(cb.value));
+    if (ids.length === 0) {
+        Alert.warning(window.translations.bulk_select_at_least_one);
+        return;
+    }
+    const employeeNames = getSelectedEmployeeNames(checkboxes);
+    document.getElementById("bulkActionModalTitle").textContent = window.translations.delete_selected;
+    document.getElementById("bulkActionMessage").textContent = window.translations.bulk_delete_confirm;
+    document.getElementById("bulkStatusDropdown").style.display = "none";
+    document.getElementById("bulkActionEmployeeList").innerHTML = employeeNames;
+    bulkActionData = { ids: ids };
+    bulkActionType = "delete";
+    const confirmBtn = document.getElementById("confirmBulkAction");
+    confirmBtn.className = "btn btn-danger";
+    confirmBtn.querySelector(".indicator-label").textContent = window.translations.delete;
+    const modal = new bootstrap.Modal(document.getElementById("bulkActionModal"));
+    modal.show();
+}
+window.openBulkStatusModal = openBulkStatusModal;
+window.openBulkDeleteModal = openBulkDeleteModal;
+// ─── تأكيد الـ Bulk Action ──────────────────────────────────────────────
+document.addEventListener("click", async function(e) {
+    const confirmBtn = e.target.closest("#confirmBulkAction");
+    if (!confirmBtn) return;
+    if (!bulkActionData || !bulkActionType) return;
+    const { ids } = bulkActionData;
+    const indicatorLabel = confirmBtn.querySelector(".indicator-label");
+    const indicatorProgress = confirmBtn.querySelector(".indicator-progress");
+    if (indicatorLabel) indicatorLabel.classList.add("d-none");
+    if (indicatorProgress) indicatorProgress.classList.remove("d-none");
+    confirmBtn.disabled = true;
+    try {
+        let payload = { ids: ids };
+        if (bulkActionType === "status") {
+            payload.action = "status";
+            payload.status = document.getElementById("bulkStatusSelect").value;
+        } else if (bulkActionType === "delete") {
+            payload.action = "delete";
+        }
+        const response = await fetch(window.routes.bulkAction, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content,
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (data?.success) {
+            Alert.success(data.message);
+            if (window.LaravelDataTables && window.LaravelDataTables["employees_datatable"]) {
+                window.LaravelDataTables["employees_datatable"].ajax.reload(null, false);
+            }
+            if (bulkActionType === "delete") {
+                setTimeout(window.checkTrashed, 500);
+            }
+            document.querySelectorAll(".row-checkbox").forEach((cb) => (cb.checked = false));
+            const selectAll = document.getElementById("selectAllCheckbox");
+            if (selectAll) selectAll.checked = false;
+            const bulkBtn = document.getElementById("bulkActionsBtn");
+            if (bulkBtn) bulkBtn.style.display = "none";
+            const modal = bootstrap.Modal.getInstance(document.getElementById("bulkActionModal"));
+            if (modal) modal.hide();
+        } else {
+            Alert.error(data?.message || window.translations.error);
+        }
+    } catch (err) {
+        Alert.error(window.translations.error);
+    } finally {
+        if (indicatorLabel) indicatorLabel.classList.remove("d-none");
+        if (indicatorProgress) indicatorProgress.classList.add("d-none");
+        confirmBtn.disabled = false;
+        bulkActionData = null;
+        bulkActionType = null;
+    }
+});
+
+// ─── عند إغلاق الـ Modal، امسح البيانات ──────────────────────────────
+
+document.addEventListener("hidden.bs.modal", function(e) {
+    if (e.target.id === "bulkActionModal") {
+        bulkActionData = null;
+        bulkActionType = null;
+    }
+});
 const Employees = (() => {
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -543,6 +679,7 @@ const Employees = (() => {
                 document.getElementById("toggleTrashed").style.display = "none";
             });
     };
+    window.checkTrashed = checkTrashed;
     // ─── Restore ───────────────────────────────────────────────────────────────
 
     const initRestore = () => {

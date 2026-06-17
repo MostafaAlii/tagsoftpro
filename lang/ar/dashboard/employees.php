@@ -68,4 +68,23 @@ return [
     'permanently_deleted' => 'تم حذف الموظف نهائياً',
     'restore_confirm' => 'هل أنت متأكد من استعادة هذا الموظف؟',
     'force_delete_confirm' => 'تحذير! هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد من الحذف النهائي؟',
+    'bulk_actions' => 'اجرائات',
+    'bulk_change_status' => 'تغيير الحالة',
+    // في employees.php
+    'selected_employees' => 'الموظفين المختارين',
+    'bulk_activate' => 'تفعيل',
+    'bulk_deactivate' => 'تعطيل',
+    'bulk_on_leave' => 'إجازة',
+    'bulk_terminate' => 'إنهاء الخدمة',
+    'bulk_activate_confirm' => 'هل أنت متأكد من تفعيل الموظفين المختارين؟',
+    'bulk_deactivate_confirm' => 'هل أنت متأكد من تعطيل الموظفين المختارين؟',
+    'bulk_on_leave_confirm' => 'هل أنت متأكد من وضع الموظفين المختارين في إجازة؟',
+    'bulk_terminate_confirm' => 'هل أنت متأكد من إنهاء خدمة الموظفين المختارين؟',
+
+    'bulk_status_confirm' => 'اختر الحالة الجديدة للموظفين المختارين',
+    'bulk_delete_confirm' => 'هل أنت متأكد من حذف الموظفين المختارين نهائياً؟',
+    'bulk_select_at_least_one' => 'يرجى تحديد موظف واحد على الأقل',
+    'bulk_status_updated' => 'تم تحديث حالة الموظفين بنجاح',
+    'bulk_deleted' => 'تم حذف الموظفين المختارين بنجاح',
+    'select_status' => 'اختر الحالة',
 ];

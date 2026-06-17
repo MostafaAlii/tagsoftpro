@@ -21,8 +21,7 @@ return [
     'edit'                              =>                      'تعديل',
     'delete'                            =>                      'حذف',
     'close'                             =>                      'اغلاق',
-    'yes'                               =>                      'نعم',
-    'no'                                =>                      'لا',
+    'delete_selected'                   =>                      'حذف السجلات',
     'owner'                             =>                      'المالك',
     'company_admin'                     =>                      'مدير شركه',
     'branch_admin'                      =>                      'مدير فرع',
@@ -50,4 +49,5 @@ return [
     'company' => 'الشركه',
     'date' => 'تاريخ الانشاء',
     'add' => 'اضافه',
+    'confirm' => 'تأكيد',
 ];

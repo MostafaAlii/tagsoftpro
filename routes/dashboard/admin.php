@@ -59,6 +59,7 @@ Route::group(
             Route::patch('employees/{employee}/restore', [Dashboard\EmployeeController::class, 'restore'])->name('employees.restore');
             Route::delete('employees/{employee}/force-delete', [Dashboard\EmployeeController::class, 'forceDelete'])->name('employees.forceDelete');
             Route::get('employees/has-trashed', [Dashboard\EmployeeController::class, 'hasTrashed'])->name('employees.hasTrashed');
+            Route::post('employees/bulk-action', [Dashboard\EmployeeController::class, 'bulkAction'])->name('employees.bulkAction');
             Route::resource('employees', Dashboard\EmployeeController::class);
         });
         require __DIR__ . '../../auth.php';

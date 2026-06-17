@@ -1,17 +1,13 @@
 <?php
-
 namespace App\DataTables\Dashboard\Admin;
-
 use App\DataTables\Base\BaseDataTable;
 use App\Models\Employee;
-use App\Enums\Employee\{EmployeeStatus, EmployeeType};
 use App\Http\Middleware\EnsureOwner;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
 use Yajra\DataTables\Utilities\Request as DataTableRequest;
 use App\Models\Concerns\UploadMedia;
-
 class EmployeeDataTable extends BaseDataTable {
     use UploadMedia;
     protected $customFilters = [];
@@ -24,6 +20,9 @@ class EmployeeDataTable extends BaseDataTable {
 
     public function dataTable($query): EloquentDataTable {
         $dataTable = (new EloquentDataTable($query))
+            ->addColumn('checkbox', function (Employee $employee) {
+                return '<input type="checkbox" class="form-check-input row-checkbox" value="' . $employee->id . '">';
+            })
             ->addColumn('action', function (Employee $employee) {
                 return view('dashboard.admin.employees.btn.actions', compact('employee'));
             })
@@ -85,7 +84,7 @@ class EmployeeDataTable extends BaseDataTable {
             ->editColumn('created_at', fn(Employee $employee) => $this->formatTranslatedDate($employee->created_at))
             ->editColumn('updated_at', fn(Employee $employee) => $this->formatTranslatedDate($employee->updated_at))
             ->addIndexColumn()
-            ->rawColumns(['action', 'email', 'employee', 'status', 'type', 'created_at', 'updated_at']);
+            ->rawColumns(['checkbox','action', 'email', 'employee', 'status', 'type', 'created_at', 'updated_at']);
 
         return $dataTable;
     }
@@ -154,7 +153,135 @@ class EmployeeDataTable extends BaseDataTable {
             ->minifiedAjax()
             ->parameters(array_merge($this->getParameters(), [
                 'initComplete' => $this->getInitCompleteScript(),
+                'drawCallback' => $this->getDrawCallbackScript(),
             ]));
+    }
+
+    /*protected function getParameters() {
+        $params = parent::getParameters();
+        $bulkActionButton = [
+            'extend' => 'collection',
+            'text' => '<i class="ti ti-settings me-1"></i> ' . trans('dashboard/employees.bulk_actions') . ' <span class="badge bg-light text-dark ms-1" id="selectedCount">0</span>',
+            'className' => 'btn btn-warning',
+            'buttons' => [
+                [
+                    'text' => '<i class="ti ti-exchange me-2 text-primary"></i> ' . trans('dashboard/employees.bulk_change_status'),
+                    'action' => 'function(e, dt, node, config) { window.openBulkStatusModal(); }',
+                ],
+                [
+                    'text' => '<i class="ti ti-trash me-2 text-danger"></i> ' . trans('dashboard/general.delete_selected'),
+                    'className' => 'text-danger',
+                    'action' => 'function(e, dt, node, config) { window.openBulkDeleteModal(); }',
+                ],
+            ],
+            'attr' => [
+                'id' => 'bulkActionsBtn',
+            ]
+        ];
+        $params['buttons'] = array_merge([$bulkActionButton], $params['buttons'] ?? []);
+        return $params;
+    }*/
+    protected function getParameters() {
+        $params = parent::getParameters();
+        $bulkActionButton = [
+            'extend' => 'collection',
+            'text' => '<i class="ti ti-settings me-1"></i> ' . trans('dashboard/employees.bulk_actions') . ' <span class="badge bg-light text-dark ms-1" id="selectedCount">0</span>',
+            'className' => 'btn btn-warning',
+            'buttons' => [
+                [
+                    'text' => '<i class="ti ti-exchange me-2 text-primary"></i> ' . trans('dashboard/employees.bulk_change_status'),
+                    'action' => 'function(e, dt, node, config) {
+                    if (typeof openBulkStatusModal === "function") {
+                        openBulkStatusModal();
+                    } else if (typeof window.openBulkStatusModal === "function") {
+                        window.openBulkStatusModal();
+                    }
+                }',
+                ],
+                [
+                    'text' => '<i class="ti ti-trash me-2 text-danger"></i> ' . trans('dashboard/general.delete_selected'),
+                    'className' => 'text-danger',
+                    'action' => 'function(e, dt, node, config) {
+                    if (typeof openBulkDeleteModal === "function") {
+                        openBulkDeleteModal();
+                    } else if (typeof window.openBulkDeleteModal === "function") {
+                        window.openBulkDeleteModal();
+                    }
+                }',
+                ],
+            ],
+            'attr' => [
+                'id' => 'bulkActionsBtn',
+            ]
+        ];
+        $params['buttons'] = array_merge([$bulkActionButton], $params['buttons'] ?? []);
+        return $params;
+    }
+    /**
+     * Draw callback for checkbox select all and bulk actions
+     */
+    private function getDrawCallbackScript(): string
+    {
+        return '
+            function() {
+                var table = this;
+
+                // ─── تحديث حالة الـ Bulk Actions ──────────────────
+                function updateBulkActions() {
+                    var checked = document.querySelectorAll("tbody .row-checkbox:checked");
+                    var selectedCount = document.getElementById("selectedCount");
+                    var bulkBtn = document.getElementById("bulkActionsBtn");
+
+                    if (checked.length > 0) {
+                        if (bulkBtn) {
+                            bulkBtn.style.display = "inline-block";
+                        }
+                        if (selectedCount) {
+                            selectedCount.textContent = checked.length;
+                        }
+                    } else {
+                        if (bulkBtn) {
+                            bulkBtn.style.display = "none";
+                        }
+                    }
+                }
+
+                // ─── Individual Checkbox ──────────────────────────
+                document.querySelectorAll("tbody .row-checkbox").forEach(function(cb) {
+                    cb.removeEventListener("change", handleCheckboxChange);
+                    cb.addEventListener("change", handleCheckboxChange);
+                });
+
+                function handleCheckboxChange() {
+                    var allChecked = true;
+                    document.querySelectorAll("tbody .row-checkbox").forEach(function(c) {
+                        if (!c.checked) allChecked = false;
+                    });
+                    var selectAll = document.getElementById("selectAllCheckbox");
+                    if (selectAll) {
+                        selectAll.checked = allChecked;
+                    }
+                    updateBulkActions();
+                }
+
+                // ─── Select All Checkbox ──────────────────────────
+                var selectAll = document.getElementById("selectAllCheckbox");
+                if (selectAll) {
+                    selectAll.removeEventListener("change", handleSelectAllChange);
+                    selectAll.addEventListener("change", handleSelectAllChange);
+                }
+
+                function handleSelectAllChange() {
+                    var isChecked = this.checked;
+                    document.querySelectorAll("tbody .row-checkbox").forEach(function(cb) {
+                        cb.checked = isChecked;
+                    });
+                    updateBulkActions();
+                }
+
+                // ─── تنفيذ updateBulkActions بعد التحميل ──────────
+                setTimeout(updateBulkActions, 100);
+            }';
     }
 
     private function getInitCompleteScript(): string {
@@ -187,7 +314,7 @@ class EmployeeDataTable extends BaseDataTable {
             var api = this.api();
 
             // ─── Search box بالاسم ──────────────────────────
-            var nameColIndex = 2;
+            var nameColIndex = 3;
             var nameHeader = $(api.column(nameColIndex).header());
             var nameInput = $(\'<input type="text" class="mt-1 form-control form-control-sm" placeholder="' . trans('dashboard/employees.name') . '...">\');
             nameHeader.append(nameInput);
@@ -198,7 +325,7 @@ class EmployeeDataTable extends BaseDataTable {
             });
 
             // ─── فلتر Status ──────────────────────────────
-            var statusColIndex = 5;
+            var statusColIndex = 6;
             var statusHeader = $(api.column(statusColIndex).header());
             var statusSelect = $(\'<select class="mt-1 form-select form-select-sm">\' +
                 \'<option value="">' . $allText . '</option>\' +
@@ -212,7 +339,7 @@ class EmployeeDataTable extends BaseDataTable {
             });
 
             // ─── فلتر Type ──────────────────────────────────
-            var typeColIndex = 6;
+            var typeColIndex = 7;
             var typeHeader = $(api.column(typeColIndex).header());
             var typeSelect = $(\'<select class="mt-1 form-select form-select-sm">\' +
                 \'<option value="">' . $allText . '</option>\' +
@@ -230,6 +357,7 @@ class EmployeeDataTable extends BaseDataTable {
     public function getColumns(): array
     {
         $columns = [
+            ['name' => 'checkbox','data' => 'checkbox','title' => '<input type="checkbox" class="form-check-input" id="selectAllCheckbox">','className' => 'text-center','orderable' => false,'searchable' => false,'width' => '50px'],
             ['name' => 'DT_RowIndex', 'data' => 'DT_RowIndex', 'title' => '#', 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
             ['name' => 'employee', 'data' => 'employee', 'title' => trans('dashboard/employees.avatar'), 'className' => 'text-center', 'orderable' => false, 'searchable' => false],
             ['name' => 'name', 'data' => 'name', 'title' => trans('dashboard/employees.name'), 'className' => 'text-center', 'searchable' => true, 'orderable' => true],
