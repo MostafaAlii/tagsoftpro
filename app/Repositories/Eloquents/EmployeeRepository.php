@@ -6,12 +6,15 @@ use App\DataTables\Dashboard\Admin\EmployeeDataTable;
 use App\Repositories\Contracts\EmployeeRepositoryInterface;
 use App\Models\{Employee, Company, Department};
 use App\Http\Requests\Dashboard\Employee\StoreEmployeeRequest;
-use Illuminate\Support\Facades\{DB,Hash};
+use Illuminate\Support\Facades\{DB, Hash};
 use Illuminate\Http\Request;
 use App\Models\Concerns\UploadMedia;
-class EmployeeRepository implements EmployeeRepositoryInterface {
+
+class EmployeeRepository implements EmployeeRepositoryInterface
+{
     use UploadMedia;
-    public function index(EmployeeDataTable $employeeDataTable) {
+    public function index(EmployeeDataTable $employeeDataTable)
+    {
         $companies = Company::whereStatus('active')->get(['id', 'name']);
         $departments = Department::active()->with('translations')->get();
         $locales = array_keys(config('laravellocalization.supportedLocales'));
@@ -23,7 +26,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         ]);
     }
 
-    public function store(StoreEmployeeRequest $request) {
+    public function store(StoreEmployeeRequest $request)
+    {
         try {
             DB::beginTransaction();
             $employee = Employee::create([
@@ -59,7 +63,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         }
     }
 
-    public function edit(Employee $employee) {
+    public function edit(Employee $employee)
+    {
         $employee->load('media');
         return response()->json([
             'success' => true,
@@ -67,7 +72,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         ]);
     }
 
-    public function update(Employee $employee, array $data, ?Request $request = null) {
+    public function update(Employee $employee, array $data, ?Request $request = null)
+    {
         try {
             DB::beginTransaction();
             $updateData = [
@@ -110,7 +116,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         }
     }
 
-    public function toggleStatus(Employee $employee) {
+    public function toggleStatus(Employee $employee)
+    {
         try {
             $statuses = ['active', 'inactive', 'on_leave', 'terminated'];
             $currentIndex = array_search($employee->status->value, $statuses);
@@ -132,7 +139,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         }
     }
 
-    public function destroy(Employee $employee) {
+    public function destroy(Employee $employee)
+    {
         try {
             $employee->deleteExistingMedia(
                 'employee',
@@ -165,7 +173,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         }
     }
 
-    public function restore($id) {
+    public function restore($id)
+    {
         try {
             $employee = Employee::withTrashed()->findOrFail($id);
             $employee->restore();
@@ -182,7 +191,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         }
     }
 
-    public function forceDelete($id) {
+    public function forceDelete($id)
+    {
         try {
             $employee = Employee::withTrashed()->findOrFail($id);
             $this->deleteExistingMedia(
@@ -206,8 +216,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         }
     }
 
-    public function bulkAction(Request $request) {
-        
+    public function bulkAction(Request $request)
+    {
         try {
             $ids = $request->ids;
             $action = $request->action;
@@ -225,6 +235,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
                     Employee::whereIn('id', $ids)->update(['status' => $status]);
                     $message = trans('dashboard/employees.bulk_status_updated');
                     break;
+
                 case 'delete':
                     $employees = Employee::whereIn('id', $ids)->get();
                     foreach ($employees as $employee) {
@@ -233,6 +244,21 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
                     Employee::whereIn('id', $ids)->delete();
                     $message = trans('dashboard/employees.bulk_deleted');
                     break;
+
+                case 'restore': // ✅ جديد
+                    Employee::withTrashed()->whereIn('id', $ids)->restore();
+                    $message = trans('dashboard/employees.bulk_restored_successfully');
+                    break;
+
+                case 'force_delete': // ✅ جديد
+                    $employees = Employee::withTrashed()->whereIn('id', $ids)->get();
+                    foreach ($employees as $employee) {
+                        $this->deleteExistingMedia('employee', $employee, null, 'media', true, 'employee');
+                    }
+                    Employee::withTrashed()->whereIn('id', $ids)->forceDelete();
+                    $message = trans('dashboard/employees.bulk_force_deleted_successfully');
+                    break;
+
                 default:
                     return response()->json([
                         'success' => false,

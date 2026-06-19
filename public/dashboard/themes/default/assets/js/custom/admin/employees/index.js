@@ -81,12 +81,29 @@ document.addEventListener("click", async function(e) {
     confirmBtn.disabled = true;
     try {
         let payload = { ids: ids };
-        if (bulkActionType === "status") {
-            payload.action = "status";
-            payload.status = document.getElementById("bulkStatusSelect").value;
-        } else if (bulkActionType === "delete") {
-            payload.action = "delete";
-        }
+                switch (bulkActionType) {
+                    case "status":
+                        payload.action = "status";
+                        payload.status =
+                            document.getElementById("bulkStatusSelect").value;
+                        break;
+
+                    case "delete":
+                        payload.action = "delete";
+                        break;
+
+                    case "restore": // ✅ جديد
+                        payload.action = "restore";
+                        break;
+
+                    case "force_delete": // ✅ جديد
+                        payload.action = "force_delete";
+                        break;
+
+                    default:
+                        Alert.error(window.translations.error);
+                        return;
+                }
         const response = await fetch(window.routes.bulkAction, {
             method: "POST",
             headers: {
@@ -100,18 +117,29 @@ document.addEventListener("click", async function(e) {
         const data = await response.json();
         if (data?.success) {
             Alert.success(data.message);
-            if (window.LaravelDataTables && window.LaravelDataTables["employees_datatable"]) {
-                window.LaravelDataTables["employees_datatable"].ajax.reload(null, false);
+            if (
+                window.LaravelDataTables &&
+                window.LaravelDataTables["employees_datatable"]
+            ) {
+                window.LaravelDataTables["employees_datatable"].ajax.reload(
+                    null,
+                    false,
+                );
             }
-            if (bulkActionType === "delete") {
+            // ─── التحقق من وجود محذوفين بعد العمليات ────────
+            if (["delete", "restore", "force_delete"].includes(bulkActionType)) {
                 setTimeout(window.checkTrashed, 500);
             }
-            document.querySelectorAll(".row-checkbox").forEach((cb) => (cb.checked = false));
+            document
+                .querySelectorAll(".row-checkbox")
+                .forEach((cb) => (cb.checked = false));
             const selectAll = document.getElementById("selectAllCheckbox");
             if (selectAll) selectAll.checked = false;
             const bulkBtn = document.getElementById("bulkActionsBtn");
             if (bulkBtn) bulkBtn.style.display = "none";
-            const modal = bootstrap.Modal.getInstance(document.getElementById("bulkActionModal"));
+            const modal = bootstrap.Modal.getInstance(
+                document.getElementById("bulkActionModal"),
+            );
             if (modal) modal.hide();
         } else {
             Alert.error(data?.message || window.translations.error);
@@ -664,16 +692,22 @@ const Employees = (() => {
                     toggleBtn.style.display = "none";
                     if (window.showTrashed) {
                         window.showTrashed = false;
-                        const btnText =
-                            document.getElementById("trashedBtnText");
+                        const btnText = document.getElementById("trashedBtnText");
                         btnText.textContent = window.translations.show_trashed;
-                        const table =
-                            window.LaravelDataTables["employees_datatable"];
-                        table.ajax
-                            .url(window.routes.index + "?show_trashed=false")
-                            .load();
+                        const table = window.LaravelDataTables["employees_datatable"];
+                        table.ajax.url(window.routes.index + "?show_trashed=false").load();
+                        setTimeout(function () {
+                            if (typeof attachBulkButtonEvents === "function") {
+                                attachBulkButtonEvents();
+                            }
+                        }, 500);
                     }
                 }
+                setTimeout(function () {
+                    if (typeof attachBulkButtonEvents === "function") {
+                        attachBulkButtonEvents();
+                    }
+                }, 300);
             })
             .catch(() => {
                 document.getElementById("toggleTrashed").style.display = "none";
@@ -747,6 +781,78 @@ const Employees = (() => {
             );
         });
     };
+
+    // ─── Bulk Restore Modal ────────────────────────────────────────────────
+
+    function openBulkRestoreModal() {
+        const checkboxes = document.querySelectorAll(".row-checkbox:checked");
+        const ids = Array.from(checkboxes).map((cb) => parseInt(cb.value));
+
+        if (ids.length === 0) {
+            Alert.warning(window.translations.bulk_select_at_least_one);
+            return;
+        }
+
+        const employeeNames = getSelectedEmployeeNames(checkboxes);
+
+        document.getElementById("bulkActionModalTitle").textContent =
+            window.translations.bulk_restore || "استعادة جماعية";
+        document.getElementById("bulkActionMessage").textContent =
+            window.translations.bulk_restore_confirm ||
+            "هل أنت متأكد من استعادة الموظفين المحددين؟";
+        document.getElementById("bulkStatusDropdown").style.display = "none";
+        document.getElementById("bulkActionEmployeeList").innerHTML =
+            employeeNames;
+
+        bulkActionData = { ids: ids };
+        bulkActionType = "restore"; // ✅ نوع جديد
+
+        const confirmBtn = document.getElementById("confirmBulkAction");
+        confirmBtn.className = "btn btn-success";
+        confirmBtn.querySelector(".indicator-label").textContent =
+            window.translations.restore || "استعادة";
+
+        const modal = new bootstrap.Modal(
+            document.getElementById("bulkActionModal"),
+        );
+        modal.show();
+    }
+    window.openBulkRestoreModal = openBulkRestoreModal;
+
+    // ─── Bulk Force Delete Modal ────────────────────────────────────────────
+
+    function openBulkForceDeleteModal() {
+        const checkboxes = document.querySelectorAll(".row-checkbox:checked");
+        const ids = Array.from(checkboxes).map((cb) => parseInt(cb.value));
+
+        if (ids.length === 0) {
+            Alert.warning(window.translations.bulk_select_at_least_one);
+            return;
+        }
+
+        const employeeNames = getSelectedEmployeeNames(checkboxes);
+
+        document.getElementById("bulkActionModalTitle").textContent = window.translations.bulk_force_delete || "حذف نهائي جماعي";
+        document.getElementById("bulkActionMessage").textContent = window.translations.bulk_force_delete_confirm ||
+            "تحذير! هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟";
+        document.getElementById("bulkStatusDropdown").style.display = "none";
+        document.getElementById("bulkActionEmployeeList").innerHTML =
+            employeeNames;
+
+        bulkActionData = { ids: ids };
+        bulkActionType = "force_delete"; // ✅ نوع جديد
+
+        const confirmBtn = document.getElementById("confirmBulkAction");
+        confirmBtn.className = "btn btn-danger";
+        confirmBtn.querySelector(".indicator-label").textContent =
+            window.translations.force_delete || "حذف نهائي";
+
+        const modal = new bootstrap.Modal(
+            document.getElementById("bulkActionModal"),
+        );
+        modal.show();
+    }
+    window.openBulkForceDeleteModal = openBulkForceDeleteModal;
 
     // ─── Init ─────────────────────────────────────────────────────────────────
 

@@ -30,13 +30,16 @@
                     {{-- Avatar --}}
                     <div class="col-md-12">
                         <div class="p-3 text-center border rounded">
-                            <label for="editEmployeeInput" class="form-label fw-bold">{{ trans('dashboard/employees.avatar') }}</label>
-                            <input class="form-control" type="file" name="employee" id="editEmployeeInput" accept="image/*">
+                            <label for="editEmployeeInput" class="form-label fw-bold">{{
+                                trans('dashboard/employees.avatar') }}</label>
+                            <input class="form-control" type="file" name="employee" id="editEmployeeInput"
+                                accept="image/*">
                             <div class="mt-2">
                                 <img id="editEmployeePreview" src="" alt=""
                                     style="display: none; width: 100px; height: 100px; object-fit: cover; border-radius: 50%; border: 2px solid #e0e0e0; cursor: pointer;"
                                     onclick="window.openImageModal(this.src, '{{ trans('dashboard/employees.avatar') }}')">
-                                <span id="editEmployeePlaceholder" class="text-muted">{{ trans('dashboard/employees.no_avatar') }}</span>
+                                <span id="editEmployeePlaceholder" class="text-muted">{{
+                                    trans('dashboard/employees.no_avatar') }}</span>
                             </div>
                         </div>
                     </div>
@@ -123,7 +126,8 @@
                                 <select class="form-select" name="department_id" id="edit_department_id">
                                     <option value="">{{ trans('dashboard/employees.select_department') }}</option>
                                     @foreach(\App\Models\Department::active()->with('translations')->get() as $department)
-                                    <option value="{{ $department->id }}">{{ $department->getTranslatedName() }}</option>
+                                    <option value="{{ $department->id }}">{{ $department->getTranslatedName() }}
+                                    </option>
                                     @endforeach
                                 </select>
                             </div>

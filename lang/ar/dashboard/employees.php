@@ -87,4 +87,13 @@ return [
     'bulk_status_updated' => 'تم تحديث حالة الموظفين بنجاح',
     'bulk_deleted' => 'تم حذف الموظفين المختارين بنجاح',
     'select_status' => 'اختر الحالة',
+    'bulk_restore' => 'استعادة المحددين',
+    'bulk_force_delete' => 'حذف نهائي للمحددين',
+    'bulk_restore_confirm' => 'هل أنت متأكد من استعادة الموظفين المختارين؟',
+    'bulk_force_delete_confirm' => 'هل أنت متأكد من الحذف النهائي للموظفين المختارين؟',
+    'bulk_restored' => 'تم استعادة الموظفين المختارين بنجاح',
+    'bulk_restored_successfully' => 'تم استعادة الموظفين المختارين بنجاح',
+    'bulk_force_deleted' => 'تم حذف الموظفين المختارين نهائياً',
+    'bulk_force_deleted_successfully' => 'تم حذف الموظفين المختارين نهائياً',
+    'select_company' => 'اختار الشركه',
 ];
