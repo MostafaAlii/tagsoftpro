@@ -1,5 +1,10 @@
 "use strict";
-
+/**
+ * ============================================================
+ * MAIN FUNCTIONS: Employee Bulk Actions
+ * ============================================================
+ * Bulk Status Change, Bulk Delete, Bulk Restore, Bulk Force Delete
+ **/
 // ─── Bulk Actions Global Variables ──────────────────────────────────────────
 var bulkActionData = null;
 var bulkActionType = null;

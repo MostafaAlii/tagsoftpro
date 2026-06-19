@@ -1,5 +1,11 @@
 "use strict";
-
+/**
+ * ============================================================
+ * MAIN FUNCTIONS: Employee Management CRUD Operations
+ * ============================================================
+ * Toggle Status, Edit, Delete, Force Delete, Restore Employee
+ * Image Preview
+ **/
 // ─── Helpers ──────────────────────────────────────────────────────────────
 const route = (name, id) => window.routes[name].replace("__ID__", id);
 

@@ -1,7 +1,5 @@
 <?php
-
 namespace App\DataTables\Dashboard\Admin;
-
 use App\DataTables\Base\BaseDataTable;
 use App\Models\Employee;
 use App\Http\Middleware\EnsureOwner;
@@ -10,21 +8,17 @@ use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
 use Yajra\DataTables\Utilities\Request as DataTableRequest;
 use App\Models\Concerns\UploadMedia;
-
-class EmployeeDataTable extends BaseDataTable
-{
+class EmployeeDataTable extends BaseDataTable {
     use UploadMedia;
     protected $customFilters = [];
     protected $showTrashed = false;
-    public function __construct(DataTableRequest $request)
-    {
+    public function __construct(DataTableRequest $request) {
         parent::__construct(new Employee);
         $this->request = $request;
         $this->showTrashed = $request->get('show_trashed', false) === 'true';
     }
 
-    public function dataTable($query): EloquentDataTable
-    {
+    public function dataTable($query): EloquentDataTable {
         $dataTable = (new EloquentDataTable($query))
             ->addColumn('checkbox', function (Employee $employee) {
                 return '<input type="checkbox" class="form-check-input row-checkbox" value="' . $employee->id . '">';
@@ -98,8 +92,7 @@ class EmployeeDataTable extends BaseDataTable
     /**
      * Render avatar image
      */
-    private function renderAvatar(Employee $employee): string
-    {
+    private function renderAvatar(Employee $employee): string {
         $imageUrl = $this->getMediaUrl('employee', $employee, null, 'media', 'employee');
         if ($imageUrl) {
             return '
@@ -111,7 +104,6 @@ class EmployeeDataTable extends BaseDataTable
                      onclick="window.openImageModal(\'' . $imageUrl . '\', \'' . e($employee->name) . '\')">
             ';
         }
-
         $initials = strtoupper(substr($employee->name, 0, 2));
         return '
             <div class="avatar-placeholder"
@@ -121,27 +113,30 @@ class EmployeeDataTable extends BaseDataTable
         ';
     }
 
-    /**
-     * Render status badge with toggle button
-     */
-    private function renderStatusBadge(Employee $employee): string
-    {
-        return '
+    private function renderStatusBadge(Employee $employee): string {
+        if ($this->showTrashed) {
+            return '
             <div class="gap-1 d-flex flex-column align-items-center">
                 <span class="badge-status">' . $employee->status->badge() . '</span>
-                <button type="button"
-                        class="btn btn-sm btn-outline-secondary toggle-status"
-                        data-id="' . $employee->id . '"
-                        data-route="' . route('admin.employees.toggleStatus', $employee->id) . '"
-                        title="تغيير الحالة">
-                    <i class="ti ti-refresh"></i>
-                </button>
             </div>
         ';
+        }
+        return '
+        <div class="gap-1 d-flex flex-column align-items-center">
+            <span class="badge-status">' . $employee->status->badge() . '</span>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary toggle-status"
+                    data-id="' . $employee->id . '"
+                    data-route="' . route('admin.employees.toggleStatus', $employee->id) . '"
+                    title="تغيير الحالة">
+                <i class="ti ti-refresh"></i>
+            </button>
+        </div>
+    ';
     }
 
-    public function query(): QueryBuilder
-    {
+
+    public function query(): QueryBuilder {
         $query = Employee::query()->with(['department.translations', 'media']);
         if ($this->showTrashed) {
             $query->onlyTrashed();
@@ -155,8 +150,7 @@ class EmployeeDataTable extends BaseDataTable
         return $query;
     }
 
-    public function html(): HtmlBuilder
-    {
+    public function html(): HtmlBuilder {
         return $this->builder()
             ->setTableId($this->model->getTable() . '_datatable')
             ->columns($this->getColumns())
@@ -166,51 +160,10 @@ class EmployeeDataTable extends BaseDataTable
                 'drawCallback' => $this->getDrawCallbackScript(),
             ]));
     }
-
-    /*protected function getParameters()
-    {
-        $params = parent::getParameters();
-        $bulkActionButton = [
-            'extend' => 'collection',
-            'text' => '<i class="ti ti-settings me-1"></i> ' . trans('dashboard/employees.bulk_actions') . ' <span class="badge bg-light text-dark ms-1" id="selectedCount">0</span>',
-            'className' => 'btn btn-warning',
-            'buttons' => [
-                [
-                    'text' => '<i class="ti ti-exchange me-2 text-primary"></i> ' . trans('dashboard/employees.bulk_change_status'),
-                    'action' => 'function(e, dt, node, config) {
-                    if (typeof openBulkStatusModal === "function") {
-                        openBulkStatusModal();
-                    } else if (typeof window.openBulkStatusModal === "function") {
-                        window.openBulkStatusModal();
-                    }
-                }',
-                ],
-                [
-                    'text' => '<i class="ti ti-trash me-2 text-danger"></i> ' . trans('dashboard/general.delete_selected'),
-                    'className' => 'text-danger',
-                    'action' => 'function(e, dt, node, config) {
-                    if (typeof openBulkDeleteModal === "function") {
-                        openBulkDeleteModal();
-                    } else if (typeof window.openBulkDeleteModal === "function") {
-                        window.openBulkDeleteModal();
-                    }
-                }',
-                ],
-            ],
-            'attr' => [
-                'id' => 'bulkActionsBtn',
-            ]
-        ];
-        $params['buttons'] = array_merge([$bulkActionButton], $params['buttons'] ?? []);
-        return $params;
-    }*/
-    protected function getParameters()
-    {
+    protected function getParameters() {
         $params = parent::getParameters();
         $bulkButtons = [];
-
         if ($this->showTrashed) {
-            // ─── وضع المحذوفين: استعادة + حذف نهائي ──────────
             $bulkButtons = [
                 [
                     'text' => '<i class="ti ti-refresh me-2 text-success"></i> ' . trans('dashboard/employees.bulk_restore'),
@@ -236,7 +189,6 @@ class EmployeeDataTable extends BaseDataTable
                 ],
             ];
         } else {
-            // ─── وضع النشطين: تغيير حالة + حذف ناعم ──────────
             $bulkButtons = [
                 [
                     'text' => '<i class="ti ti-exchange me-2 text-primary"></i> ' . trans('dashboard/employees.bulk_change_status'),
@@ -261,8 +213,6 @@ class EmployeeDataTable extends BaseDataTable
                 ],
             ];
         }
-
-        // ─── بناء زر الـ Bulk Actions بالخيارات المناسبة ──────
         $bulkActionButton = [
             'extend' => 'collection',
             'text' => '<i class="ti ti-settings me-1"></i> ' . trans('dashboard/employees.bulk_actions') . ' <span class="badge bg-light text-dark ms-1" id="selectedCount">0</span>',
@@ -272,25 +222,20 @@ class EmployeeDataTable extends BaseDataTable
                 'id' => 'bulkActionsBtn',
             ]
         ];
-
         $params['buttons'] = array_merge([$bulkActionButton], $params['buttons'] ?? []);
         return $params;
     }
     /**
      * Draw callback for checkbox select all and bulk actions
      */
-    private function getDrawCallbackScript(): string
-    {
+    private function getDrawCallbackScript(): string {
         return '
             function() {
                 var table = this;
-
-                // ─── تحديث حالة الـ Bulk Actions ──────────────────
                 function updateBulkActions() {
                     var checked = document.querySelectorAll("tbody .row-checkbox:checked");
                     var selectedCount = document.getElementById("selectedCount");
                     var bulkBtn = document.getElementById("bulkActionsBtn");
-
                     if (checked.length > 0) {
                         if (bulkBtn) {
                             bulkBtn.style.display = "inline-block";
@@ -304,13 +249,11 @@ class EmployeeDataTable extends BaseDataTable
                         }
                     }
                 }
-
                 // ─── Individual Checkbox ──────────────────────────
                 document.querySelectorAll("tbody .row-checkbox").forEach(function(cb) {
                     cb.removeEventListener("change", handleCheckboxChange);
                     cb.addEventListener("change", handleCheckboxChange);
                 });
-
                 function handleCheckboxChange() {
                     var allChecked = true;
                     document.querySelectorAll("tbody .row-checkbox").forEach(function(c) {
@@ -322,14 +265,12 @@ class EmployeeDataTable extends BaseDataTable
                     }
                     updateBulkActions();
                 }
-
                 // ─── Select All Checkbox ──────────────────────────
                 var selectAll = document.getElementById("selectAllCheckbox");
                 if (selectAll) {
                     selectAll.removeEventListener("change", handleSelectAllChange);
                     selectAll.addEventListener("change", handleSelectAllChange);
                 }
-
                 function handleSelectAllChange() {
                     var isChecked = this.checked;
                     document.querySelectorAll("tbody .row-checkbox").forEach(function(cb) {
@@ -337,14 +278,11 @@ class EmployeeDataTable extends BaseDataTable
                     });
                     updateBulkActions();
                 }
-
-                // ─── تنفيذ updateBulkActions بعد التحميل ──────────
                 setTimeout(updateBulkActions, 100);
             }';
     }
 
-    private function getInitCompleteScript(): string
-    {
+    private function getInitCompleteScript(): string {
         $allText = trans('dashboard/general.all');
         $statuses = [
             'active' => trans('dashboard/employees.status_active'),
@@ -363,28 +301,23 @@ class EmployeeDataTable extends BaseDataTable
         foreach ($statuses as $value => $label) {
             $statusOptions .= '<option value="' . $value . '">' . $label . '</option>';
         }
-
         $typeOptions = '';
         foreach ($types as $value => $label) {
             $typeOptions .= '<option value="' . $value . '">' . $label . '</option>';
         }
-
         return '
         function() {
             var api = this.api();
-
-            // ─── Search box بالاسم ──────────────────────────
+            // ─── Search box Name ──────────────────────────
             var nameColIndex = 3;
             var nameHeader = $(api.column(nameColIndex).header());
             var nameInput = $(\'<input type="text" class="mt-1 form-control form-control-sm" placeholder="' . trans('dashboard/employees.name') . '...">\');
             nameHeader.append(nameInput);
-
             nameInput.on("keyup change", function(e) {
                 e.stopPropagation();
                 api.column(nameColIndex).search(this.value).draw();
             });
-
-            // ─── فلتر Status ──────────────────────────────
+            // ─── Filter Status ──────────────────────────────
             var statusColIndex = 6;
             var statusHeader = $(api.column(statusColIndex).header());
             var statusSelect = $(\'<select class="mt-1 form-select form-select-sm">\' +
@@ -398,7 +331,7 @@ class EmployeeDataTable extends BaseDataTable
                 api.column(statusColIndex).search(this.value).draw();
             });
 
-            // ─── فلتر Type ──────────────────────────────────
+            // ─── Filter Type ──────────────────────────────────
             var typeColIndex = 7;
             var typeHeader = $(api.column(typeColIndex).header());
             var typeSelect = $(\'<select class="mt-1 form-select form-select-sm">\' +
@@ -406,7 +339,6 @@ class EmployeeDataTable extends BaseDataTable
                 \'' . $typeOptions . '\' +
                 \'</select>\');
             typeHeader.append(typeSelect);
-
             typeSelect.on("change", function(e) {
                 e.stopPropagation();
                 api.column(typeColIndex).search(this.value).draw();
@@ -414,8 +346,7 @@ class EmployeeDataTable extends BaseDataTable
         }';
     }
 
-    public function getColumns(): array
-    {
+    public function getColumns(): array {
         $columns = [
             ['name' => 'checkbox', 'data' => 'checkbox', 'title' => '<input type="checkbox" class="form-check-input" id="selectAllCheckbox">', 'className' => 'text-center', 'orderable' => false, 'searchable' => false, 'width' => '50px'],
             ['name' => 'DT_RowIndex', 'data' => 'DT_RowIndex', 'title' => '#', 'className' => 'text-center', 'orderable' => false, 'searchable' => false],

@@ -1,5 +1,6 @@
 <?php
 return [
+    'modules'              => 'Modules',
     'yes'                  => 'Yes',
     'no'                   => 'No',
     'delete_confirm_title' => 'Confirm Delete',

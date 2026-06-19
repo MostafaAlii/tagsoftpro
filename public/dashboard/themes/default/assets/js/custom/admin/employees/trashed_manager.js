@@ -1,5 +1,10 @@
 "use strict";
-
+/**
+ * ============================================================
+ * MAIN FUNCTIONS: Trashed Employees Management
+ * ============================================================
+ * Check Trashed, Toggle View, Rebuild Buttons, Dropdown Control
+ **/
 // ─── Check Trashed ──────────────────────────────────────────────────────────
 const checkTrashed = () => {
     fetch(window.routes.hasTrashed)

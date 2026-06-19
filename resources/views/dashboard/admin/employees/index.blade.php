@@ -11,16 +11,29 @@
         margin-top: 5px !important;
     }
 
-    /* الـ wrapper بتاع الـ buttons يكون relative */
     .dt-buttons {
         position: relative !important;
     }
 
-    .dataTables_wrapper,
     .card-header,
-    .card,
-    .table-responsive {
+    .card-body {
         overflow: visible !important;
+    }
+
+    .table-responsive {
+        overflow-x: auto !important;
+    }
+
+    /* عربي */
+    [dir="rtl"] .dt-button-collection {
+        right: 0 !important;
+        left: auto !important;
+    }
+
+    /* انجليزي - سواء مفيش dir أو ltr */
+    html:not([dir="rtl"]) .dt-button-collection {
+        left: 0 !important;
+        right: auto !important;
     }
 </style>
 @endpush
@@ -68,8 +81,8 @@
                     @include('dashboard.admin.employees.btn.create', compact('companies', 'departments'))
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-row-bordered gy-5 gs-7">
+                    <div class="table-responsive w-100">
+                        <table class="table table-striped table-row-bordered gy-3 gs-3 table-hover align-middle fs-7">
                             {!! $dataTable->table() !!}
                         </table>
                     </div>
