@@ -278,5 +278,6 @@
             </div>
         </div>
     </nav>
+    @include('dashboard.themes.hopeui.includes._navbar')
     <!--Nav End-->
 </div>

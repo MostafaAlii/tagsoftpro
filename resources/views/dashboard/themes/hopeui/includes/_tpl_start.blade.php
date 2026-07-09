@@ -29,7 +29,30 @@
     <!-- RTL Css -->
     <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/rtl.min.css') }}">
     @endif
-
+    <style>
+        @font-face {
+            font-family: 'Cairo';
+            src: url('{{ asset("dashboard/themes/" . $theme_code . "/assets/fonts/Cairo/static/Cairo-Regular.ttf") }}') format('truetype');
+            font-weight: 400;
+        }
+    
+        html,
+        body,
+        a,
+        p,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        table,
+        .btn,
+        .alert,
+        .dt-button {
+            font-family: 'Cairo', sans-serif !important;
+        }
+    </style>
     @stack('css')
   </head>
   <body class="light theme-color-default" data-aos-easing="ease" data-aos-duration="700" data-aos-delay="0">
