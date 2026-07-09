@@ -33,6 +33,16 @@
                         <input type="text" name="phone" class="form-control">
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label">{{ trans('dashboard/company.project_type') }}</label>
+                        <select name="project_type_id" class="form-select">
+                            <option value="">{{ trans('dashboard/company.select_project_type') }}</option>
+                            @foreach($projectTypes as $type)
+                            <option value="{{ $type->id }}">{{ $type->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{

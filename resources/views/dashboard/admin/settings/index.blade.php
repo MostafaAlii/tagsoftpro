@@ -70,6 +70,37 @@
                                 </div>
                             </div>
                             <!-- End System Status -->
+                            <!-- Start Theme Selection -->
+                            @if($availableThemes->isNotEmpty())
+                            <div class="container p-4 mt-2 bg-white rounded shadow">
+                                <div class="form-group row">
+                                    <div class="col-md-6">
+                                        <label class="input-group-text text-dark">
+                                            شكل لوحة التحكم (Theme)
+                                            @if($setting?->theme)
+                                                <span class="ms-2">
+                                                    - {{ $setting->theme->name }}
+                                                    {!! $setting->theme->paid_type->badge() !!}
+                                                </span>
+                                            @endif
+                                        </label>
+                                        <select name="theme_id" class="form-control select2">
+                                            <option value="">-- الافتراضي (Default) --</option>
+                                            @foreach($availableThemes as $theme)
+                                                <option value="{{ $theme->id }}"
+                                                    @selected(old('theme_id', $setting?->theme_id) == $theme->id)>
+                                                    {{ $theme->name }}
+                                                    @if($theme->getFormattedPrice() && $theme->paid_type->value !== 'free')
+                                                        ({{ $theme->getFormattedPrice() }})
+                                                    @endif
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            <!-- End Theme Selection -->
                             <!-- Start Logo & Favicon -->
                             <div class="container p-4 mt-2 bg-white rounded shadow">
                                 <div class="row">

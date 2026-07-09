@@ -4,5 +4,5 @@ return [
     'name' => 'الاسم',
     'companies'    => 'الشركات',
     'no_companies' => 'لا يوجد شركات',
-    'add_company'  => 'إضافة شركة', 
+    'add_company'  => 'إضافة شركة',
 ];

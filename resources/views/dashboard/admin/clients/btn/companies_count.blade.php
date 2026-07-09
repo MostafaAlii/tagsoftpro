@@ -22,6 +22,7 @@
                             <th class="text-center">{{ trans('dashboard/company.name') }}</th>
                             <th class="text-center">{{ trans('dashboard/company.email') }}</th>
                             <th class="text-center">{{ trans('dashboard/company.phone') }}</th>
+                            <th class="text-center">{{ trans('dashboard/company.project_type') }}</th>
                             <th class="text-center">{{ trans('dashboard/general.status') }}</th>
                         </tr>
                     </thead>
@@ -32,6 +33,13 @@
                             <td>{{ $company->name }}</td>
                             <td>{{ $company->email ?? '-' }}</td>
                             <td>{{ $company->phone ?? '-' }}</td>
+                            <td>
+                                @if($company->projectType)
+                                    {{ $company->projectType->getTranslatedName() }}
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
                             <td>
                                 <select name="status" class="form-select form-select-sm company-status-select"
                                     data-route="{{ route('admin.clients.companies.updateStatus', ['client' => $client->id, 'company' => $company->id]) }}"

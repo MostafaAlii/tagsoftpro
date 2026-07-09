@@ -61,6 +61,12 @@ Route::group(
             Route::get('employees/has-trashed', [Dashboard\EmployeeController::class, 'hasTrashed'])->name('employees.hasTrashed');
             Route::post('employees/bulk-action', [Dashboard\EmployeeController::class, 'bulkAction'])->name('employees.bulkAction');
             Route::resource('employees', Dashboard\EmployeeController::class);
+
+            Route::resource('themes', Dashboard\ThemeController::class);
+            Route::get('themes/{theme}/statuses', [Dashboard\ThemeController::class, 'getStatuses'])->name('themes.statuses');
+            Route::post('themes/{theme}/bulk-update', [Dashboard\ThemeController::class, 'bulkUpdate'])->name('themes.bulkUpdate');
+            Route::patch('themes/{theme}/toggle-status/{projectType}', [Dashboard\ThemeController::class, 'toggleStatus'])->name('themes.toggleStatus');
+            Route::patch('themes/{theme}/toggle-default/{projectType}', [Dashboard\ThemeController::class, 'toggleDefault'])->name('themes.toggleDefault');
         });
         require __DIR__ . '../../auth.php';
     }

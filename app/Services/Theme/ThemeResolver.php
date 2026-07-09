@@ -1,33 +1,74 @@
 <?php
 namespace App\Services\Theme;
-use App\Models\{AdminPanelSetting,Theme};
-use Illuminate\Support\Facades\Cache;
+use App\Models\AdminPanelSetting;
+use App\Models\ProjectType;
+use Illuminate\Support\Facades\{Cache, File};
 class ThemeResolver {
-    public static function code(): string {
+    protected const DEFAULT_THEME = 'default';
+    protected const CACHE_TTL = 3600;
+    public static function settings(): ?AdminPanelSetting {
         $companyId = get_user_data()?->company_id;
         return Cache::remember(
-            'theme_code_' . ($companyId ?? 'owner'),
-            3600,
-            function () use ($companyId) {
-                $settingsQuery = AdminPanelSetting::query();
+            static::cacheKey($companyId),static::CACHE_TTL,function () use ($companyId) {
+                $query = AdminPanelSetting::with(['media', 'theme'])->orderBy('created_at', 'desc');
                 if ($companyId) {
-                    $settingsQuery->where('company_id', $companyId);
+                    $query->where('company_id', $companyId);
                 } else {
-                    $settingsQuery->whereNull('company_id');
+                    $query->whereNull('company_id');
                 }
-                $settings = $settingsQuery->with('theme')->first();
-                // 1. from settings
-                if ($settings?->theme?->code) {
-                    return $settings->theme->code;
-                }
-                // 2. default theme from DB
-                $defaultTheme = Theme::where('is_default', 1)->first();
-                if ($defaultTheme?->code) {
-                    return $defaultTheme->code;
-                }
-                // 3. hard fallback
-                return 'default';
+                return $query->first();
             }
         );
+    }
+    
+    public static function code(?AdminPanelSetting $settings = null): string {
+        $settings ??= static::settings();
+        $code = $settings?->theme?->code;
+        if ($code && static::exists($code)) {
+            return $code;
+        }
+        // default theme
+        $projectTypeId = get_user_data()?->company?->project_type_id;
+        if ($projectTypeId) {
+            $defaultCode = static::defaultCodeForProjectType($projectTypeId);
+            if ($defaultCode && static::exists($defaultCode)) {
+                return $defaultCode;
+            }
+        }
+        return static::DEFAULT_THEME;
+    }
+
+    public static function defaultCodeForProjectType(int $projectTypeId): ?string {
+        return Cache::remember(static::projectTypeCacheKey($projectTypeId),static::CACHE_TTL,function () use ($projectTypeId) {
+                $projectType = ProjectType::withoutGlobalScope(\App\Models\Scopes\CompanyScope::class)
+                    ->with(['themes' => function ($q) {
+                        $q->wherePivot('is_default', true)
+                            ->wherePivot('is_active', true);
+                    }])->find($projectTypeId);
+                return $projectType?->themes->first()?->code;
+            }
+        );
+    }
+
+    public static function exists(string $code): bool {
+        return File::isDirectory(resource_path("views/dashboard/themes/{$code}"))
+            && File::isDirectory(public_path("dashboard/themes/{$code}"));
+    }
+
+    public static function cacheKey(?int $companyId): string {
+        return 'app_settings_' . ($companyId ?? 'default');
+    }
+
+    public static function projectTypeCacheKey(int $projectTypeId): string {
+        return 'project_type_default_theme_' . $projectTypeId;
+    }
+    
+    public static function forget(?int $companyId = null): void {
+        $companyId ??= get_user_data()?->company_id;
+        Cache::forget(static::cacheKey($companyId));
+    }
+
+    public static function forgetProjectTypeDefault(int $projectTypeId): void {
+        Cache::forget(static::projectTypeCacheKey($projectTypeId));
     }
 }

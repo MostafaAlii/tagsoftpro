@@ -21,12 +21,12 @@
                                 <div class="col-lg-12 col-md-12 col-12">
                                     <div class="d-lg-flex justify-content-between align-items-center ">
                                         <div class="d-md-flex align-items-center">
-                                            <img src="{{ asset('dashboard/themes/default/assets/images/user/avatar-2.jpg') }}" alt="Image"
+                                            <img src="{{ asset('dashboard/themes/'.$theme_code.'/assets/images/user/avatar-2.jpg') }}" alt="Image"
                                                 class="rounded-circle avatar avatar-xl">
                                             <div class="mt-3 ms-md-4">
                                                 <h2 class="mb-1 text-white fw-600">
                                                     {{ucfirst(get_user_data()?->name)}}
-                                                    
+
                                                 </h2>
                                                 <p class="text-white">
                                                     {!! \App\Enums\Admin\AdminType::label(get_user_data()?->type) . ' ' . get_user_data()?->company?->name !!}

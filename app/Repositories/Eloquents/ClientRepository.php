@@ -44,7 +44,7 @@ class ClientRepository implements ClientRepositoryInterface
     }
 
     public function update(Request $request, $id)
-    { 
+    {
         $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string',
@@ -71,6 +71,7 @@ class ClientRepository implements ClientRepositoryInterface
             'name'  => 'required|string|max:255|unique:companies,name',
             'email' => 'nullable|email|unique:companies,email',
             'phone' => 'nullable|string',
+            'project_type_id' => 'nullable|exists:project_types,id',
         ]);
 
         $client->companies()->create([
@@ -79,6 +80,7 @@ class ClientRepository implements ClientRepositoryInterface
             'phone'    => $request->phone,
             'password' => bcrypt($request->phone),
             'status'   => 'active',
+            'project_type_id' => $request->project_type_id,
         ]);
         return redirect()->route('admin.clients.index')->with('success', 'تم إضافة الشركة بنجاح!');
     }

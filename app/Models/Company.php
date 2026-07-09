@@ -16,6 +16,7 @@ class Company extends Authenticatable {
         'email',
         'phone',
         'status',
+        'project_type_id',
         'password',
         'client_id',
     ];
@@ -84,5 +85,10 @@ class Company extends Authenticatable {
         ]);
 
         $plan->syncToCompany($this);
+    }
+
+    public function projectType(): BelongsTo
+    {
+        return $this->belongsTo(ProjectType::class);
     }
 }
