@@ -19,6 +19,7 @@ return [
     'company' => 'Company',
     'department' => 'Department',
     'select_department' => 'Select Department...',
+    'leave_blank_to_keep' => 'Leave blank to keep current password',
 
     // Status
     'status_active' => 'Active',

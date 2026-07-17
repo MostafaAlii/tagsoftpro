@@ -1,6 +1,6 @@
 @include('dashboard.themes.' . $theme_code . '.includes._tpl_start')
 @include('dashboard.themes.' . $theme_code . '.includes._header')
-@include('dashboard.themes.' . $theme_code . '.includes._sidebar')
+@include('dashboard.admin.sidebar')
 <!-- [ Main Content ] start -->
 <div class="page-content-wrapper">
     <div class="content-container">

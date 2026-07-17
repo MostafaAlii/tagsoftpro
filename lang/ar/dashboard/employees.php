@@ -19,6 +19,7 @@ return [
     'company' => 'الشركة',
     'department' => 'الإدارة',
     'select_department' => 'اختر الإدارة...',
+    'leave_blank_to_keep' => 'اتركه فارغًا للاحتفاظ بكلمة المرور الحالية',
 
     // Status
     'status_active' => 'نشط',

@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Actions\Menu\Bulk;
+
+use App\Actions\Menu\Bulk\Contracts\BulkActionInterface;
+use InvalidArgumentException;
+
+class BulkActionHandler
+{
+    private array $actions = [
+        'status'       => BulkStatusAction::class,
+        'delete'       => BulkDeleteAction::class,
+        'restore'      => BulkRestoreAction::class,
+        'force_delete' => BulkForceDeleteAction::class,
+    ];
+
+    public function handle(string $action, array $ids, array $params = []): string
+    {
+        throw_unless(
+            isset($this->actions[$action]),
+            new InvalidArgumentException(trans('dashboard/general.error_occurred'))
+        );
+
+        /** @var BulkActionInterface $actionInstance */
+        $actionInstance = app($this->actions[$action]);
+        return $actionInstance->handle($ids, $params);
+    }
+}

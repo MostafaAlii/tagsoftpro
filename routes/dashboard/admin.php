@@ -67,7 +67,22 @@ Route::group(
             Route::post('themes/{theme}/bulk-update', [Dashboard\ThemeController::class, 'bulkUpdate'])->name('themes.bulkUpdate');
             Route::patch('themes/{theme}/toggle-status/{projectType}', [Dashboard\ThemeController::class, 'toggleStatus'])->name('themes.toggleStatus');
             Route::patch('themes/{theme}/toggle-default/{projectType}', [Dashboard\ThemeController::class, 'toggleDefault'])->name('themes.toggleDefault');
-        });
+
+            Route::patch('permission_groups/{permission_group}/toggle-status', [Dashboard\PermissionGroupController::class, 'toggleStatus'])->name('permission_groups.toggleStatus');
+            Route::patch('permission_groups/{permission_group}/restore', [Dashboard\PermissionGroupController::class, 'restore'])->name('permission_groups.restore');
+            Route::delete('permission_groups/{permission_group}/force-delete', [Dashboard\PermissionGroupController::class, 'forceDelete'])->name('permission_groups.forceDelete');
+            Route::post('permission_groups/bulk-action', [Dashboard\PermissionGroupController::class, 'bulkAction'])->name('permission_groups.bulkAction');
+            Route::get('permission_groups/has-trashed', [Dashboard\PermissionGroupController::class, 'hasTrashed'])->name('permission_groups.hasTrashed');
+            Route::resource('permission_groups', Dashboard\PermissionGroupController::class)->except(['show']);
+
+
+            Route::patch('menus/{menu}/toggle-status', [Dashboard\MenuController::class, 'toggleStatus'])->name('menus.toggleStatus');
+            Route::patch('menus/{menu}/restore', [Dashboard\MenuController::class, 'restore'])->name('menus.restore');
+            Route::delete('menus/{menu}/force-delete', [Dashboard\MenuController::class, 'forceDelete'])->name('menus.forceDelete');
+            Route::post('menus/bulk-action', [Dashboard\MenuController::class, 'bulkAction'])->name('menus.bulkAction');
+            Route::get('menus/has-trashed', [Dashboard\MenuController::class, 'hasTrashed'])->name('menus.hasTrashed');
+            Route::resource('menus', Dashboard\MenuController::class)->except(['show']);
+            });
         require __DIR__ . '../../auth.php';
     }
 );

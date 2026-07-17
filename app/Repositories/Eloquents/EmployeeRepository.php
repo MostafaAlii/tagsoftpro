@@ -7,9 +7,10 @@ use App\Repositories\Contracts\EmployeeRepositoryInterface;
 use App\Models\{Employee, Company, Department};
 use App\Http\Requests\Dashboard\Employee\StoreEmployeeRequest;
 use Illuminate\Support\Facades\{DB, Hash};
-use Illuminate\Http\{Request,JsonResponse};
+use Illuminate\Http\{Request, JsonResponse};
 use App\Models\Concerns\UploadMedia;
 use App\Actions\Employee\Bulk\BulkActionHandler;
+
 class EmployeeRepository implements EmployeeRepositoryInterface {
     use UploadMedia;
     public function index(EmployeeDataTable $employeeDataTable) {
@@ -51,21 +52,16 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
                 );
             }
             DB::commit();
-            return redirect()->route('admin.employees.index')
-                ->with('success', trans('dashboard/employees.created_successfully'));
+            return redirect()->route('admin.employees.index')->with('success', trans('dashboard/employees.created_successfully'));
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('admin.employees.index')
-                ->with('error', trans('dashboard/general.error_occurred'));
+            return redirect()->route('admin.employees.index')->with('error', trans('dashboard/general.error_occurred'));
         }
     }
 
     public function edit(Employee $employee) {
         $employee->load('media');
-        return response()->json([
-            'success' => true,
-            'data' => $employee,
-        ]);
+        return response()->json(['success' => true,'data' => $employee,]);
     }
 
     public function update(Employee $employee, array $data, ?Request $request = null) {
@@ -170,7 +166,6 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
         try {
             $employee = Employee::withTrashed()->findOrFail($id);
             $employee->restore();
-
             return response()->json([
                 'success' => true,
                 'message' => trans('dashboard/employees.restored_successfully'),
@@ -216,7 +211,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface {
                     'message' => trans('dashboard/employees.bulk_select_at_least_one'),
                 ]);
             }
-            $message = app(BulkActionHandler::class)->handle(action: $request->action,ids: $ids,params: $request->only(['status']));
+            $message = app(BulkActionHandler::class)->handle(action: $request->action, ids: $ids, params: $request->only(['status']));
             return response()->json(['success' => true, 'message' => $message]);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()]);

@@ -25,3 +25,4 @@
         <img src="{{ asset('dashboard/themes/'. $theme_code .'/assets/images/dashboard/top-header5.png') }}" alt="header" class="theme-color-pink-img img-fluid w-100 h-100 animated-scaleX">
     </div>
 </div> <!-- Nav Header Component End -->
+<br>

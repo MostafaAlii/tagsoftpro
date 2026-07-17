@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 @if (app()->getLocale() == 'ar')
-    <html direction="rtl" dir="rtl" style="direction: rtl">
+<html direction="rtl" dir="rtl" style="direction: rtl">
 @else
-    <html lang="en">
+<html lang="en">
 @endif
+
 <head>
     <title>{{ $settings?->company_name }} | @yield('title')</title>
     <!-- Meta -->
@@ -22,19 +23,22 @@
     <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/fonts/feather.css') }}">
     <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/fonts/fontawesome.css') }}">
     <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/fonts/material.css') }}">
-    <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/plugins/bootstrap-switch-button.min.css') }}">
+    <link rel="stylesheet"
+        href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/plugins/bootstrap-switch-button.min.css') }}">
     <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/plugins/dataTables.bootstrap5.min.css') }}">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.2.4/css/buttons.bootstrap5.min.css">
     <!-- vendor css -->
     @if (app()->getLocale() == 'ar')
-        <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/style-rtl.css') }}" id="rtl-style-link">
+    <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/style-rtl.css') }}"
+        id="rtl-style-link">
     @else
-        <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/style.css') }}" id="main-style-link">
+    <link rel="stylesheet" href="{{ asset('dashboard/themes/'. $theme_code .'/assets/css/style.css') }}"
+        id="main-style-link">
     @endif
     <style>
         @font-face {
             font-family: 'Cairo';
-        src: url('{{ asset("dashboard/themes/" . $theme_code . "/assets/fonts/Cairo/static/Cairo-Regular.ttf") }}') format('truetype');
+            src: url('{{ asset("dashboard/themes/" . $theme_code . "/assets/fonts/Cairo/static/Cairo-Regular.ttf") }}') format('truetype');
             font-weight: 400;
         }
 

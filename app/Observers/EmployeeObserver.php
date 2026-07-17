@@ -6,10 +6,8 @@ namespace App\Observers;
 
 use App\Models\Employee;
 
-class EmployeeObserver
-{
-    public function created(Employee $employee): void
-    {
+class EmployeeObserver {
+    public function created(Employee $employee): void {
         $user = get_user_data();
         $employee->profile()->create([]);
         $employee->company_id = $employee->company_id ?? $user?->company_id;

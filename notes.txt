@@ -1,0 +1,1489 @@
+عملت كدا
+public function up(): void {
+        Schema::create('menus', function (Blueprint $table) {
+            $table->id();
+            $table->uuid('uuid')->unique();
+            $table->string('key')->unique();
+            $table->string('route_prefix')->nullable();
+            $table->string('icon')->nullable();
+            $table->enum('status', ['active', 'inactive'])->default('active');
+            $table->foreignId('company_id')->nullable()->constrained('companies')->cascadeOnDelete()->comment('الشركة');
+            $table->foreignId('created_by')->nullable()->constrained('admins')->cascadeOnDelete()->comment('أنشئ بواسطة');
+            $table->foreignId('updated_by')->nullable()->constrained('admins')->nullOnDelete()->comment('عدل بواسطة');
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::create('menu_translations', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('menu_id')->constrained('menus')->cascadeOnDelete();
+            $table->string('locale')->index();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->unique(['menu_id', 'locale']);
+        });
+    }
+-------------------------------
+class Menu extends BaseModel implements TranslatableContract {
+    use Translatable, SoftDeletes;
+    protected $table = 'menus';
+    public $translationModel = MenuTranslation::class;
+    protected $fillable = [
+        'uuid',
+        'key',
+        'route_prefix',
+        'icon',
+        'status',
+        'company_id',
+        'created_by',
+        'updated_by',
+    ];
+
+    public $translatedAttributes = ['name', 'description'];
+    protected $casts = [
+        'status' => MenuStatus::class,
+    ];
+
+    // ─── Boot ──────────────────────────────────────────────
+    protected static function booted(): void {
+        static::addGlobalScope(new Scopes\CompanyScope());
+    }
+
+    // ─── Scopes ──────────────────────────────────────────────
+    public function scopeActive($query) {
+        return $query->where('status', MenuStatus::ACTIVE);
+    }
+
+    public function scopeInactive($query) {
+        return $query->where('status', MenuStatus::INACTIVE);
+    }
+
+    // ─── Relationships ──────────────────────────────────────
+    public function company(): BelongsTo {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function createdBy(): BelongsTo {
+        return $this->belongsTo(Admin::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo {
+        return $this->belongsTo(Admin::class, 'updated_by');
+    }
+
+    // ─── Methods ──────────────────────────────────────────────
+    public function getTranslatedName(): string {
+        return $this->translate(app()->getLocale())?->name
+            ?? $this->translate('ar')?->name
+            ?? $this->name
+            ?? '-';
+    }
+
+    public function getTranslatedDescription(): ?string {
+        return $this->translate(app()->getLocale())?->description
+            ?? $this->translate('ar')?->description;
+    }
+}
+--------------------------------
+namespace App\Models\Translations;
+class MenuTranslation extends Model {
+    protected $table = 'menu_translations';
+    protected $fillable = [
+        'menu_id',
+        'locale',
+        'name',
+        'description',
+    ];
+    public $timestamps = false;
+    public function menu(): BelongsTo {
+        return $this->belongsTo(Menu::class);
+    }
+}
+-------------------------
+enum MenuStatus: string {
+    case ACTIVE = 'active';
+    case INACTIVE = 'inactive';
+    public function badge(): string {
+        return match ($this) {
+            self::ACTIVE => '<span class="badge bg-success">' . trans('dashboard/menus.status_active') . '</span>',
+            self::INACTIVE => '<span class="badge bg-danger">' . trans('dashboard/menus.status_inactive') . '</span>',
+        };
+    }
+
+    public static function values(): array {
+        return array_column(self::cases(), 'value');
+    }
+
+    public static function options(): array {
+        return [
+            self::ACTIVE->value => trans('dashboard/menus.status_active'),
+            self::INACTIVE->value => trans('dashboard/menus.status_inactive'),
+        ];
+    }
+}
+---------------------------------------------------
+class MenuObserver {
+    public function creating(Menu $menu): void {
+        if (empty($menu->key)) {
+            $menu->key = Str::slug($menu->name, '_');
+        }
+        $user = get_user_data();
+        $menu->company_id = $menu->company_id ?? $user?->company_id;
+        $menu->created_by = $user?->id;
+    }
+
+    public function updating(Menu $menu): void {
+        $user = get_user_data();
+        if ($user && $user->company_id) {
+            $menu->company_id = $user->company_id;
+        }
+        $menu->updated_by = $user?->id;
+    }
+
+    public function restoring(Menu $menu): void {
+        $user = get_user_data();
+        $menu->updated_by = $user?->id;
+    }
+}
+----------------------------------------
+<?php
+
+namespace App\Repositories\Eloquents;
+
+use App\DataTables\Dashboard\Admin\MenuDataTable;
+use App\Repositories\Contracts\MenuRepositoryInterface;
+use App\Models\Menu;
+use App\Models\Company;
+use App\Http\Requests\Dashboard\Menu\StoreMenuRequest;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Actions\Menu\Bulk\BulkActionHandler;
+
+class MenuRepository implements MenuRepositoryInterface {
+    public function index(MenuDataTable $menuDataTable)
+    {
+        $companies = Company::whereStatus('active')->get(['id', 'name']);
+        $locales = array_keys(config('laravellocalization.supportedLocales'));
+
+        return $menuDataTable->render('dashboard.admin.menus.index', [
+            'title' => trans('dashboard/menus.menus'),
+            'companies' => $companies,
+            'locales' => $locales,
+        ]);
+    }
+
+    public function store(StoreMenuRequest $request)
+    {
+        try {
+            DB::beginTransaction();
+
+            $menu = Menu::create([
+                'key' => $request->key,
+                'icon' => $request->icon,
+                'route_prefix' => $request->route_prefix,
+                'status' => $request->status,
+                'company_id' => $request->company_id,
+            ]);
+
+            if ($request->has('locales') && is_array($request->locales)) {
+                foreach ($request->locales as $locale => $data) {
+                    if (isset($data['name']) && !empty($data['name'])) {
+                        $menu->translations()->create([
+                            'locale' => $locale,
+                            'name' => $data['name'],
+                            'description' => $data['description'] ?? null,
+                        ]);
+                    }
+                }
+            }
+
+            DB::commit();
+            return redirect()->route('admin.menus.index')
+                ->with('success', trans('dashboard/menus.created_successfully'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('admin.menus.index')
+                ->with('error', trans('dashboard/general.error_occurred') . ': ' . $e->getMessage());
+        }
+    }
+
+    public function edit(Menu $menu) {
+        $menu->load('translations');
+        return response()->json([
+            'success' => true,
+            'data' => $menu,
+        ]);
+    }
+
+    public function update(Menu $menu, array $data, ?Request $request = null)
+    {
+        try {
+            DB::beginTransaction();
+
+            $updateData = [
+                'key' => $data['key'] ?? $menu->key,
+                'icon' => $data['icon'] ?? $menu->icon,
+                'route_prefix' => $data['route_prefix'] ?? $menu->route_prefix,
+                'status' => $data['status'] ?? $menu->status,
+                'company_id' => $data['company_id'] ?? $menu->company_id,
+            ];
+
+            $menu->update($updateData);
+
+            if (isset($data['locales']) && is_array($data['locales'])) {
+                foreach ($data['locales'] as $locale => $translationData) {
+                    if (isset($translationData['name']) && !empty($translationData['name'])) {
+                        $menu->translations()->updateOrCreate(
+                            ['locale' => $locale],
+                            [
+                                'name' => $translationData['name'],
+                                'description' => $translationData['description'] ?? null,
+                            ]
+                        );
+                    }
+                }
+            }
+
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => trans('dashboard/menus.updated_successfully'),
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function toggleStatus(Menu $menu)
+    {
+        try {
+            $newStatus = $menu->status === 'active' ? 'inactive' : 'active';
+            $menu->update(['status' => $newStatus]);
+
+            return response()->json([
+                'success' => true,
+                'badge' => $menu->status->badge(),
+                'message' => trans('dashboard/menus.status_updated'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred'),
+            ], 500);
+        }
+    }
+
+    public function destroy(Menu $menu) {
+        try {
+            $menu->delete();
+            if (request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => trans('dashboard/menus.deleted_successfully'),
+                ]);
+            }
+            return redirect()->route('admin.menus.index')->with('success', trans('dashboard/menus.deleted_successfully'));
+        } catch (\Exception $e) {
+            if (request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trans('dashboard/general.error_occurred'),
+                ], 500);
+            }
+            return redirect()->route('admin.menus.index')->with('error', trans('dashboard/general.error_occurred'));
+        }
+    }
+
+    public function restore($id)
+    {
+        try {
+            $menu = Menu::withTrashed()->findOrFail($id);
+            $menu->restore();
+
+            return response()->json([
+                'success' => true,
+                'message' => trans('dashboard/menus.restored_successfully'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred'),
+            ], 500);
+        }
+    }
+
+    public function forceDelete($id)
+    {
+        try {
+            $menu = Menu::withTrashed()->findOrFail($id);
+            $menu->forceDelete();
+
+            return response()->json([
+                'success' => true,
+                'message' => trans('dashboard/menus.permanently_deleted'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred'),
+            ], 500);
+        }
+    }
+
+    public function bulkAction(Request $request): JsonResponse
+    {
+        try {
+            $ids = $request->ids;
+            if (empty($ids)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trans('dashboard/menus.bulk_select_at_least_one'),
+                ]);
+            }
+
+            $message = app(BulkActionHandler::class)->handle(
+                action: $request->action,
+                ids: $ids,
+                params: $request->only(['status'])
+            );
+
+            return response()->json(['success' => true, 'message' => $message]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function hasTrashed()
+    {
+        return response()->json([
+            'hasTrashed' => Menu::onlyTrashed()->exists()
+        ]);
+    }
+}
+--------------------------------
+interface MenuRepositoryInterface
+{
+    public function index(MenuDataTable $menuDataTable);
+    public function store(StoreMenuRequest $request);
+    public function edit(Menu $menu);
+    public function update(Menu $menu, array $data, ?Request $request = null);
+    public function toggleStatus(Menu $menu);
+    public function destroy(Menu $menu);
+    public function restore($id);
+    public function forceDelete($id);
+    public function bulkAction(Request $request);
+    public function hasTrashed();
+}
+-----------------------------------
+namespace App\Actions\Menu\Bulk;
+
+use App\Actions\Menu\Bulk\Contracts\BulkActionInterface;
+use InvalidArgumentException;
+
+class BulkActionHandler
+{
+    private array $actions = [
+        'status'       => BulkStatusAction::class,
+        'delete'       => BulkDeleteAction::class,
+        'restore'      => BulkRestoreAction::class,
+        'force_delete' => BulkForceDeleteAction::class,
+    ];
+
+    public function handle(string $action, array $ids, array $params = []): string
+    {
+        throw_unless(
+            isset($this->actions[$action]),
+            new InvalidArgumentException(trans('dashboard/general.error_occurred'))
+        );
+
+        /** @var BulkActionInterface $actionInstance */
+        $actionInstance = app($this->actions[$action]);
+        return $actionInstance->handle($ids, $params);
+    }
+}
+---------------------------------
+<?php
+
+namespace App\Http\Controllers\Dashboard;
+
+use App\Http\Controllers\Controller;
+use App\DataTables\Dashboard\Admin\MenuDataTable;
+use App\Repositories\Contracts\MenuRepositoryInterface;
+use App\Http\Requests\Dashboard\Menu\StoreMenuRequest;
+use App\Models\Menu;
+use Illuminate\Http\Request;
+
+class MenuController extends Controller
+{
+    protected $menuRepository;
+
+    public function __construct(MenuRepositoryInterface $menuRepository)
+    {
+        $this->menuRepository = $menuRepository;
+    }
+
+    public function index(MenuDataTable $menuDataTable)
+    {
+        return $this->menuRepository->index($menuDataTable);
+    }
+
+    public function store(StoreMenuRequest $request)
+    {
+        return $this->menuRepository->store($request);
+    }
+
+    public function edit(Menu $menu)
+    {
+        return $this->menuRepository->edit($menu);
+    }
+
+    public function update(Request $request, Menu $menu)
+    {
+        return $this->menuRepository->update($menu, $request->all(), $request);
+    }
+
+    public function toggleStatus(Menu $menu)
+    {
+        return $this->menuRepository->toggleStatus($menu);
+    }
+
+    public function destroy(Menu $menu)
+    {
+        return $this->menuRepository->destroy($menu);
+    }
+
+    public function restore($id)
+    {
+        return $this->menuRepository->restore($id);
+    }
+
+    public function forceDelete($id)
+    {
+        return $this->menuRepository->forceDelete($id);
+    }
+
+    public function bulkAction(Request $request)
+    {
+        return $this->menuRepository->bulkAction($request);
+    }
+
+    public function hasTrashed()
+    {
+        return $this->menuRepository->hasTrashed();
+    }
+}
+--------------------------------------------
+Route::patch('menus/{menu}/toggle-status', [Dashboard\MenuController::class, 'toggleStatus'])->name('menus.toggleStatus');
+            Route::patch('menus/{menu}/restore', [Dashboard\MenuController::class, 'restore'])->name('menus.restore');
+            Route::delete('menus/{menu}/force-delete', [Dashboard\MenuController::class, 'forceDelete'])->name('menus.forceDelete');
+            Route::post('menus/bulk-action', [Dashboard\MenuController::class, 'bulkAction'])->name('menus.bulkAction');
+            Route::get('menus/has-trashed', [Dashboard\MenuController::class, 'hasTrashed'])->name('menus.hasTrashed');
+            Route::resource('menus', Dashboard\MenuController::class)->except(['show']);
+---------------------------
+@extends('dashboard.layouts.master')
+@push('css')
+<style>
+    .dt-button-collection {
+        border-radius: 10px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+        border: 1px solid #e0e0e0 !important;
+        min-width: 200px !important;
+        z-index: 99999 !important;
+        position: absolute !important;
+        margin-top: 5px !important;
+    }
+
+    .dt-buttons {
+        position: relative !important;
+    }
+
+    .dataTables_wrapper,
+    .card-header,
+    .card,
+    .table-responsive {
+        overflow: visible !important;
+    }
+</style>
+@endpush
+
+@section('title')
+{{ $title }}
+@endsection
+
+@section('content')
+<div class="page-content">
+    <div class="content-header">
+        <h1 class="mb-0">{{ trans('dashboard/menus.menus') }}</h1>
+        <ul class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ route('admin.dashboard') }}">{{ trans('dashboard/header.main_dashboard') }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ route('admin.menus.index') }}">{{ trans('dashboard/menus.menus') }}</a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <span class="nav-icon">
+                        <i class="ti ti-menu-2"></i>
+                    </span>
+                    {{ trans('dashboard/menus.menus') }}
+                    <div class="gap-2 d-flex">
+                        <button data-pc-animate="3d-sign" type="button" class="btn btn-sm btn-light btn-active-primary"
+                            data-bs-toggle="modal" data-bs-target="#createMenuModal">
+                            <i class="fa fa-plus"></i>
+                            {{ trans('dashboard/menus.create') }}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger btn-active-primary" id="toggleTrashed"
+                            style="display: none;">
+                            <i class="ti ti-trash me-1"></i>
+                            <span id="trashedBtnText">{{ trans('dashboard/menus.show_trashed') }}</span>
+                        </button>
+                    </div>
+                    @include('dashboard.admin.menus.btn.create', compact('companies', 'locales'))
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-row-bordered gy-5 gs-7">
+                            {!! $dataTable->table() !!}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+
+@push('js')
+{!! $dataTable->scripts() !!}
+<script>
+    window.translations = {
+        error: "{{ trans('dashboard/general.error_occurred') }}",
+        restore: "{{ trans('dashboard/menus.restore') }}",
+        restore_confirm: "{{ trans('dashboard/menus.restore_confirm') }}",
+        force_delete: "{{ trans('dashboard/menus.force_delete') }}",
+        force_delete_confirm: "{{ trans('dashboard/menus.force_delete_confirm') }}",
+        show_active: "{{ trans('dashboard/menus.show_active') }}",
+        show_trashed: "{{ trans('dashboard/menus.show_trashed') }}",
+        bulk_select_at_least_one: "{{ trans('dashboard/menus.bulk_select_at_least_one') }}",
+        bulk_status_confirm: "{{ trans('dashboard/menus.bulk_status_confirm') }}",
+        bulk_delete_confirm: "{{ trans('dashboard/menus.bulk_delete_confirm') }}",
+        bulk_change_status: "{{ trans('dashboard/menus.bulk_change_status') }}",
+        delete_selected: "{{ trans('dashboard/general.delete_selected') }}",
+        confirm: "{{ trans('dashboard/general.confirm') }}",
+        delete: "{{ trans('dashboard/general.delete') }}",
+        bulk_actions: "{{ trans('dashboard/menus.bulk_actions') }}",
+        bulk_restore: "{{ trans('dashboard/menus.bulk_restore') }}",
+        bulk_force_delete: "{{ trans('dashboard/menus.bulk_force_delete') }}",
+        bulk_restore_confirm: "{{ trans('dashboard/menus.bulk_restore_confirm') }}",
+        bulk_force_delete_confirm: "{{ trans('dashboard/menus.bulk_force_delete_confirm') }}",
+    };
+
+    window.routes = {
+        index: "{{ route('admin.menus.index') }}",
+        edit: "{{ route('admin.menus.edit', ['menu' => '__ID__']) }}",
+        update: "{{ route('admin.menus.update', ['menu' => '__ID__']) }}",
+        destroy: "{{ route('admin.menus.destroy', ['menu' => '__ID__']) }}",
+        restore: "{{ route('admin.menus.restore', ['menu' => '__ID__'], false) }}",
+        forceDelete: "{{ route('admin.menus.forceDelete', ['menu' => '__ID__'], false) }}",
+        hasTrashed: "{{ route('admin.menus.hasTrashed') }}",
+        bulkAction: "{{ route('admin.menus.bulkAction') }}",
+    };
+    window.showTrashed = false;
+</script>
+
+<script src="{{ asset('dashboard/assets/js/custom/utils/alert.js') }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/menus/index.js') }}?v={{ time() }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/menus/bulk_actions.js') }}?v={{ time() }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/menus/trashed_manager.js') }}?v={{ time() }}"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        if (typeof window.Menus !== 'undefined' && window.Menus.init) {
+            window.Menus.init();
+        }
+        setTimeout(function() {
+            if (typeof window.checkTrashed === 'function') {
+                window.checkTrashed();
+            }
+        }, 500);
+    });
+</script>
+@endpush
+---------------------------------
+@if($menu->trashed())
+<button type="button" class="btn btn-sm btn-icon btn-light-success btn-restore"
+        data-id="{{ $menu->id }}"
+        data-route="{{ route('admin.menus.restore', $menu->id) }}"
+        title="{{ trans('dashboard/menus.restore') }}">
+    <i class="ti ti-refresh fs-5"></i>
+</button>
+
+<button type="button" class="btn btn-sm btn-icon btn-light-danger btn-force-delete"
+        data-id="{{ $menu->id }}"
+        data-route="{{ route('admin.menus.forceDelete', $menu->id) }}"
+        title="{{ trans('dashboard/menus.force_delete') }}">
+    <i class="ti ti-trash-off fs-5"></i>
+</button>
+@else
+<button type="button" class="btn btn-sm btn-icon btn-light-warning btn-edit"
+        data-id="{{ $menu->id }}"
+        title="{{ trans('dashboard/general.edit') }}">
+    <i class="ti ti-edit fs-5"></i>
+</button>
+
+<button type="button" class="btn btn-sm btn-icon btn-light-danger btn-delete"
+        data-id="{{ $menu->id }}"
+        title="{{ trans('dashboard/general.delete') }}">
+    <i class="ti ti-trash fs-5"></i>
+</button>
+@endif
+@include('dashboard.admin.menus.btn.modals')
+----------------------
+<div class="row g-3">
+    {{-- Key --}}
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label class="form-label">{{ trans('dashboard/menus.key') }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="key" id="edit_key" value="{{ old('key', $menu->key ?? '') }}"
+                placeholder="example_menu_key" required>
+            <small class="text-muted">{{ trans('dashboard/menus.key_helper') }}</small>
+        </div>
+    </div>
+
+    {{-- Icon --}}
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label class="form-label">{{ trans('dashboard/menus.icon') }}</label>
+            <input type="text" class="form-control" name="icon" id="edit_icon"
+                value="{{ old('icon', $menu->icon ?? '') }}" placeholder="ti ti-users">
+            <small class="text-muted">{{ trans('dashboard/menus.icon_helper') }}</small>
+        </div>
+    </div>
+
+    {{-- Route Prefix --}}
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label class="form-label">{{ trans('dashboard/menus.route_prefix') }}</label>
+            <input type="text" class="form-control" name="route_prefix" id="edit_route_prefix"
+                value="{{ old('route_prefix', $menu->route_prefix ?? '') }}" placeholder="admin.example">
+        </div>
+    </div>
+
+    {{-- Status --}}
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label class="form-label">{{ trans('dashboard/menus.status') }} <span class="text-danger">*</span></label>
+            <select class="form-select" name="status" id="edit_status" required>
+                <option value="active" {{ old('status', $menu->status ?? '') == 'active' ? 'selected' : '' }}>
+                    {{ trans('dashboard/menus.status_active') }}
+                </option>
+                <option value="inactive" {{ old('status', $menu->status ?? '') == 'inactive' ? 'selected' : '' }}>
+                    {{ trans('dashboard/menus.status_inactive') }}
+                </option>
+            </select>
+        </div>
+    </div>
+
+    @ownerOnly
+    <div class="col-md-12">
+        <div class="mb-3">
+            <label class="form-label">{{ trans('dashboard/menus.company') }}</label>
+            <select class="form-select" name="company_id" id="edit_company_id">
+                <option value="">-- {{ trans('dashboard/general.select') }} --</option>
+                @foreach($companies as $company)
+                <option value="{{ $company->id }}" {{ old('company_id', $menu->company_id ?? '') == $company->id ?
+                    'selected' : '' }}>
+                    {{ $company->name }}
+                </option>
+                @endforeach
+            </select>
+        </div>
+    </div>
+    @endOwnerOnly
+
+    {{-- ─── Translations Tabs ────────────────────────────────────── --}}
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header p-0">
+                <ul class="nav nav-tabs w-100" role="tablist">
+                    @foreach($locales as $index => $locale)
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {{ $index === 0 ? 'active' : '' }}" id="lang-{{ $locale }}-tab"
+                            data-bs-toggle="tab" data-bs-target="#edit-lang-{{ $locale }}" type="button" role="tab">
+                            {{ strtoupper($locale) }}
+                            <span class="text-danger">*</span>
+                        </button>
+                    </li>
+                    @endforeach
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    @foreach($locales as $index => $locale)
+                    <div class="tab-pane fade {{ $index === 0 ? 'show active' : '' }}" id="edit-lang-{{ $locale }}"
+                        role="tabpanel">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        {{ trans('dashboard/menus.name') }}
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" name="locales[{{ $locale }}][name]"
+                                        id="edit_locales_{{ $locale }}_name"
+                                        value="{{ old('locales.' . $locale . '.name', $menu?->translate($locale)?->name ?? '') }}"
+                                        @if($locale=='ar' ) required @endif>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        {{ trans('dashboard/menus.description') }}
+                                    </label>
+                                    <textarea class="form-control" name="locales[{{ $locale }}][description]"
+                                        id="edit_locales_{{ $locale }}_description"
+                                        rows="3">{{ old('locales.' . $locale . '.description', $menu?->translate($locale)?->description ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+---------------------------------
+{{-- Edit Modal --}}
+{{-- Edit Modal --}}
+<div class="modal fade" id="editMenuModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ti ti-edit me-2"></i>
+                    {{ trans('dashboard/menus.edit') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editModalLoader" class="py-5 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <form id="editMenuForm" class="d-none">
+                    @csrf
+                    <input type="hidden" id="editMenuId">
+                    <div class="row g-3">
+                        {{-- Key --}}
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{{ trans('dashboard/menus.key') }} <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="key" id="edit_key" placeholder="example_menu_key" required>
+                                <small class="text-muted">{{ trans('dashboard/menus.key_helper') }}</small>
+                            </div>
+                        </div>
+
+                        {{-- Icon --}}
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{{ trans('dashboard/menus.icon') }}</label>
+                                <input type="text" class="form-control" name="icon" id="edit_icon" placeholder="ti ti-users">
+                                <small class="text-muted">{{ trans('dashboard/menus.icon_helper') }}</small>
+                            </div>
+                        </div>
+
+                        {{-- Route Prefix --}}
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{{ trans('dashboard/menus.route_prefix') }}</label>
+                                <input type="text" class="form-control" name="route_prefix" id="edit_route_prefix" placeholder="admin.example">
+                            </div>
+                        </div>
+
+                        {{-- Status --}}
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{{ trans('dashboard/menus.status') }} <span class="text-danger">*</span></label>
+                                <select class="form-select" name="status" id="edit_status" required>
+                                    <option value="active">{{ trans('dashboard/menus.status_active') }}</option>
+                                    <option value="inactive">{{ trans('dashboard/menus.status_inactive') }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        @ownerOnly
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label class="form-label">{{ trans('dashboard/menus.company') }}</label>
+                                <select class="form-select" name="company_id" id="edit_company_id">
+                                    <option value="">-- {{ trans('dashboard/general.select') }} --</option>
+                                    @foreach($companies ?? [] as $company)
+                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        @endOwnerOnly
+
+                        {{-- ─── Translations Tabs ─────────────────── --}}
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header p-0">
+                                    <ul class="nav nav-tabs w-100" role="tablist">
+                                        @foreach($locales ?? [] as $index => $locale)
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link {{ $index === 0 ? 'active' : '' }}"
+                                                    id="lang-{{ $locale }}-tab"
+                                                    data-bs-toggle="tab"
+                                                    data-bs-target="#edit-lang-{{ $locale }}"
+                                                    type="button"
+                                                    role="tab">
+                                                {{ strtoupper($locale) }}
+                                                <span class="text-danger">*</span>
+                                            </button>
+                                        </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                                <div class="card-body">
+                                    <div class="tab-content">
+                                        @foreach($locales ?? [] as $index => $locale)
+                                        <div class="tab-pane fade {{ $index === 0 ? 'show active' : '' }}"
+                                             id="edit-lang-{{ $locale }}"
+                                             role="tabpanel">
+                                            <div class="row">
+                                                <div class="col-12">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">
+                                                            {{ trans('dashboard/menus.name') }}
+                                                            <span class="text-danger">*</span>
+                                                        </label>
+                                                        <input type="text" class="form-control"
+                                                               name="locales[{{ $locale }}][name]"
+                                                               id="edit_locales_{{ $locale }}_name"
+                                                               @if($locale=='ar' ) required @endif>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">
+                                                            {{ trans('dashboard/menus.description') }}
+                                                        </label>
+                                                        <textarea class="form-control"
+                                                                  name="locales[{{ $locale }}][description]"
+                                                                  id="edit_locales_{{ $locale }}_description"
+                                                                  rows="3"></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('dashboard/general.cancel') }}
+                </button>
+                <button type="button" class="btn btn-primary" id="saveEditMenu">
+                    <span class="indicator-label">
+                        <i class="ti ti-check me-1"></i>
+                        {{ trans('dashboard/general.save') }}
+                    </span>
+                    <span class="indicator-progress d-none">
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        {{ trans('dashboard/general.loading') }}
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Delete Modal --}}
+<div class="modal fade" id="deleteMenuModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">
+                    <i class="ti ti-alert-triangle me-2"></i>
+                    {{ trans('dashboard/general.delete') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ trans('dashboard/menus.delete_confirm') }}</p>
+                <input type="hidden" id="deleteMenuId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('dashboard/general.cancel') }}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteMenu">
+                    <span class="indicator-label">
+                        <i class="ti ti-trash me-1"></i>
+                        {{ trans('dashboard/general.delete') }}
+                    </span>
+                    <span class="indicator-progress d-none">
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        {{ trans('dashboard/general.loading') }}
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Bulk Action Modal --}}
+<div class="modal fade" id="bulkActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkActionModalTitle">{{ trans('dashboard/menus.bulk_actions') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="bulkActionMessage"></p>
+                <div id="bulkStatusDropdown" style="display: none;">
+                    <label class="form-label">{{ trans('dashboard/menus.select_status') }}</label>
+                    <select class="form-select" id="bulkStatusSelect">
+                        <option value="active">{{ trans('dashboard/menus.status_active') }}</option>
+                        <option value="inactive">{{ trans('dashboard/menus.status_inactive') }}</option>
+                    </select>
+                </div>
+                <div id="bulkActionEmployeeList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('dashboard/general.cancel') }}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmBulkAction">
+                    <span class="indicator-label">{{ trans('dashboard/general.confirm') }}</span>
+                    <span class="indicator-progress d-none">
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        {{ trans('dashboard/general.loading') }}
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Confirm Action Modal --}}
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger" id="confirmActionTitle">{{ trans('dashboard/general.confirm') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmActionBody"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('dashboard/general.cancel') }}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmActionBtn">
+                    <span class="indicator-label">{{ trans('dashboard/general.confirm') }}</span>
+                    <span class="indicator-progress d-none">
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        {{ trans('dashboard/general.loading') }}
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+------------------------------------
+// index.js
+/**
+ * ============================================================
+ * 📁 FILE: index.js
+ * 📌 MAIN FUNCTIONS: Menus CRUD Operations
+ * ============================================================
+ */
+
+"use strict";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+const route = (name, id) => window.routes[name].replace("__ID__", id);
+
+const csrfToken = () =>
+    document.querySelector('meta[name="csrf-token"]').content;
+
+const reloadTable = () => {
+    try {
+        window.LaravelDataTables["menus_datatable"].ajax.reload(
+            null,
+            false,
+        );
+    } catch (e) {
+        console.warn("reloadTable fallback:", e);
+        $("#menus_datatable").DataTable().ajax.reload(null, false);
+    }
+};
+
+const fetchJson = async (url, method, body = {}) => {
+    if (method === "GET") {
+        return fetch(url, {
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+                "X-CSRF-TOKEN": csrfToken(),
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+    }
+
+    if (method === "DELETE") {
+        return fetch(url, {
+            method: "DELETE",
+            headers: {
+                Accept: "application/json",
+                "X-CSRF-TOKEN": csrfToken(),
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({}),
+        });
+    }
+
+    if (method === "PUT" || method === "PATCH" || method === "POST") {
+        return fetch(url, {
+            method: method,
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                "X-CSRF-TOKEN": csrfToken(),
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify(body),
+        });
+    }
+
+    return fetch(url, {
+        method: method,
+        headers: {
+            Accept: "application/json",
+            "X-CSRF-TOKEN": csrfToken(),
+            "X-Requested-With": "XMLHttpRequest",
+        },
+    });
+};
+
+const parseJson = async (res) => {
+    const text = await res.text();
+    try {
+        return JSON.parse(text);
+    } catch {
+        console.error("Response is not JSON:", text);
+        return null;
+    }
+};
+
+const el = (id) => document.getElementById(id);
+
+const setBtnLoading = (btn, loading) => {
+    if (!btn) return;
+
+    const indicatorLabel = btn.querySelector(".indicator-label");
+    const indicatorProgress = btn.querySelector(".indicator-progress");
+
+    if (indicatorLabel) {
+        indicatorLabel.classList.toggle("d-none", loading);
+    }
+    if (indicatorProgress) {
+        indicatorProgress.classList.toggle("d-none", !loading);
+    }
+    btn.disabled = loading;
+};
+
+const getModal = (id) => bootstrap.Modal.getOrCreateInstance(el(id));
+const hideModal = (id) => bootstrap.Modal.getInstance(el(id))?.hide();
+
+// ─── Confirm Modal ──────────────────────────────────────────────────────────
+let confirmCallback = null;
+
+const showConfirmModal = (title, message, confirmText = "تأكيد", callback) => {
+    document.getElementById("confirmActionTitle").textContent = title;
+    document.getElementById("confirmActionBody").textContent = message;
+    const confirmBtn = document.getElementById("confirmActionBtn");
+    confirmBtn.querySelector(".indicator-label").textContent = confirmText;
+    confirmBtn.classList.remove("btn-success", "btn-danger", "btn-primary");
+    confirmBtn.classList.add("btn-danger");
+
+    confirmCallback = callback;
+
+    const modal = new bootstrap.Modal(
+        document.getElementById("confirmActionModal"),
+    );
+    modal.show();
+};
+
+document.addEventListener("click", async function (e) {
+    const confirmBtn = e.target.closest("#confirmActionBtn");
+    if (!confirmBtn) return;
+
+    if (typeof confirmCallback === "function") {
+        setBtnLoading(confirmBtn, true);
+        await confirmCallback(confirmBtn);
+        setBtnLoading(confirmBtn, false);
+    }
+
+    const modal = bootstrap.Modal.getInstance(
+        document.getElementById("confirmActionModal"),
+    );
+    if (modal) modal.hide();
+    confirmCallback = null;
+});
+
+// ─── Toggle Status ────────────────────────────────────────────────────────
+const initToggleStatus = () => {
+    document.addEventListener("click", async (e) => {
+        const btn = e.target.closest(".toggle-status");
+        if (!btn) return;
+
+        const row = btn.closest("tr");
+
+        try {
+            const res = await fetchJson(btn.dataset.route, "PATCH");
+            const data = await parseJson(res);
+
+            if (!data) {
+                Alert.error(window.translations.error);
+                return;
+            }
+
+            if (data.success) {
+                Alert.success(data.message);
+                const badgeEl = row?.querySelector(".badge-status");
+                if (badgeEl)
+                    badgeEl.outerHTML = `<span class="badge-status">${data.badge}</span>`;
+            } else {
+                Alert.error(data.message || window.translations.error);
+            }
+        } catch {
+            Alert.error(window.translations.error);
+        }
+    });
+};
+
+// ─── Edit ─────────────────────────────────────────────────────────────────
+const showEditLoader = (show) => {
+    el("editModalLoader").classList.toggle("d-none", !show);
+    el("editMenuForm").classList.toggle("d-none", show);
+};
+
+const populateEditForm = (data) => {
+    el("editMenuId").value = data.id;
+
+    const keyInput = document.getElementById("edit_key");
+    if (keyInput) keyInput.value = data.key ?? "";
+
+    const iconInput = document.getElementById("edit_icon");
+    if (iconInput) iconInput.value = data.icon ?? "";
+
+    const routePrefixInput = document.getElementById("edit_route_prefix");
+    if (routePrefixInput) routePrefixInput.value = data.route_prefix ?? "";
+
+    const statusSelect = document.getElementById("edit_status");
+    if (statusSelect) statusSelect.value = data.status ?? "active";
+
+    const companySelect = document.getElementById("edit_company_id");
+    if (companySelect) {
+        companySelect.value = data.company_id ?? "";
+    }
+
+    const locales = document.querySelectorAll('[name^="locales["]');
+    locales.forEach((input) => {
+        const match = input.name.match(/locales\[([^\]]+)\]\[([^\]]+)\]/);
+        if (match) {
+            const locale = match[1];
+            const field = match[2];
+            const translation = data.translations?.find(
+                (t) => t.locale === locale
+            );
+            if (translation) {
+                input.value = translation[field] ?? "";
+            } else {
+                input.value = "";
+            }
+        }
+    });
+};
+
+const initEdit = () => {
+    document.addEventListener("click", async (e) => {
+        const btn = e.target.closest(".btn-edit");
+        if (!btn) return;
+
+        getModal("editMenuModal").show();
+        showEditLoader(true);
+
+        try {
+            const res = await fetchJson(route("edit", btn.dataset.id), "GET");
+            const data = await parseJson(res);
+
+            if (data?.success) {
+                populateEditForm(data.data);
+                showEditLoader(false);
+            } else {
+                hideModal("editMenuModal");
+                Alert.error(window.translations.error);
+            }
+        } catch (err) {
+            console.error(err);
+            hideModal("editMenuModal");
+            Alert.error(window.translations.error);
+        }
+    });
+
+    document.addEventListener("click", async (e) => {
+        if (!e.target.closest("#saveEditMenu")) return;
+        const saveBtn = el("saveEditMenu");
+        const id = el("editMenuId").value;
+        const form = el("editMenuForm");
+        if (!id) {
+            Alert.error(window.translations.error);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("_method", "PUT");
+        formData.append("_token", csrfToken());
+
+        const fields = ["key", "icon", "route_prefix", "status"];
+        fields.forEach((field) => {
+            const input = form.querySelector(`[name="${field}"]`);
+            if (input) {
+                formData.append(field, input.value ?? "");
+            }
+        });
+
+        const companyInput = form.querySelector('[name="company_id"]');
+        if (companyInput) {
+            formData.append("company_id", companyInput.value ?? "");
+        }
+
+        const translationInputs = form.querySelectorAll('[name^="locales["]');
+        translationInputs.forEach((input) => {
+            formData.append(input.name, input.value ?? "");
+        });
+
+        setBtnLoading(saveBtn, true);
+
+        try {
+            const response = await fetch(route("update", id), {
+                method: "POST",
+                headers: {
+                    Accept: "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: formData,
+            });
+            const data = await parseJson(response);
+
+            if (data?.success) {
+                Alert.success(data.message);
+                hideModal("editMenuModal");
+                reloadTable();
+            } else {
+                Alert.error(data?.message || window.translations.error);
+            }
+        } catch (err) {
+            console.error(err);
+            Alert.error(window.translations.error);
+        } finally {
+            setBtnLoading(saveBtn, false);
+        }
+    });
+
+    document.addEventListener("hidden.bs.modal", (e) => {
+        if (e.target.id !== "editMenuModal") return;
+        el("editMenuForm")?.reset();
+        showEditLoader(true);
+    });
+};
+
+// ─── Delete ───────────────────────────────────────────────────────────────
+const initDelete = () => {
+    document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".btn-delete");
+        if (!btn) return;
+
+        // ─── نجيب اسم القائمة من الـ row ──────────────────────
+        const row = btn.closest("tr");
+        const nameCell = row?.querySelector("td:nth-child(3)");
+        const menuName = nameCell?.textContent?.trim() || '';
+
+        // ─── نحدث رسالة التأكيد ──────────────────────────────
+        const confirmMessage = document.querySelector("#deleteMenuModal .modal-body p");
+        if (confirmMessage) {
+            confirmMessage.textContent = window.translations.delete_confirm?.replace(':name', menuName)
+                || `هل أنت متأكد من حذف القائمة "${menuName}"؟`;
+        }
+
+        el("deleteMenuId").value = btn.dataset.id;
+        getModal("deleteMenuModal").show();
+    });
+
+    document.addEventListener("click", async (e) => {
+        if (!e.target.closest("#confirmDeleteMenu")) return;
+
+        const confirmBtn = el("confirmDeleteMenu");
+        const id = el("deleteMenuId").value;
+        if (!id) return;
+
+        setBtnLoading(confirmBtn, true);
+
+        try {
+            const res = await fetchJson(route("destroy", id), "DELETE");
+            const data = await parseJson(res);
+
+            if (!data) {
+                Alert.error(window.translations.error);
+                return;
+            }
+
+            if (data.success) {
+                Alert.success(data.message);
+                hideModal("deleteMenuModal");
+                reloadTable();
+                setTimeout(window.checkTrashed, 500);
+            } else {
+                Alert.error(data.message || window.translations.error);
+            }
+        } catch (err) {
+            console.error("Delete Error:", err);
+            Alert.error(window.translations.error);
+        } finally {
+            setBtnLoading(confirmBtn, false);
+        }
+    });
+
+    document.addEventListener("hidden.bs.modal", (e) => {
+        if (e.target.id !== "deleteMenuModal") return;
+        el("deleteMenuId").value = "";
+    });
+};
+
+// ─── Restore ───────────────────────────────────────────────────────────────
+const initRestore = () => {
+    document.addEventListener("click", async (e) => {
+        const btn = e.target.closest(".btn-restore");
+        if (!btn) return;
+
+        const routeUrl = btn.dataset.route;
+        if (!routeUrl) {
+            Alert.error('Route not found');
+            return;
+        }
+
+        showConfirmModal(
+            window.translations.restore || "استعادة",
+            window.translations.restore_confirm ||
+                "هل أنت متأكد من استعادة هذه القائمة؟",
+            window.translations.restore || "استعادة",
+            async (confirmBtn) => {
+                try {
+                    const res = await fetchJson(routeUrl, "PATCH");
+                    const data = await parseJson(res);
+                    if (data?.success) {
+                        Alert.success(data.message);
+                        reloadTable();
+                        setTimeout(window.checkTrashed, 500);
+                    } else {
+                        Alert.error(data?.message || window.translations.error);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    Alert.error(window.translations.error);
+                }
+            },
+        );
+    });
+};
+
+// ─── Force Delete ───────────────────────────────────────────────────────────
+const initForceDelete = () => {
+    document.addEventListener("click", async (e) => {
+        const btn = e.target.closest(".btn-force-delete");
+        if (!btn) return;
+
+        const routeUrl = btn.dataset.route;
+        if (!routeUrl) {
+            Alert.error('Route not found');
+            return;
+        }
+
+        showConfirmModal(
+            window.translations.force_delete || "حذف نهائي",
+            window.translations.force_delete_confirm ||
+                "تحذير! هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟",
+            window.translations.force_delete || "حذف نهائي",
+            async (confirmBtn) => {
+                try {
+                    const res = await fetchJson(routeUrl, "DELETE");
+                    const data = await parseJson(res);
+                    if (data?.success) {
+                        Alert.success(data.message);
+                        reloadTable();
+                        setTimeout(window.checkTrashed, 500);
+                    } else {
+                        Alert.error(data?.message || window.translations.error);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    Alert.error(window.translations.error);
+                }
+            },
+        );
+    });
+};
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+const init = () => {
+    initToggleStatus();
+    initEdit();
+    initDelete();
+    initRestore();
+    initForceDelete();
+};
+
+window.Menus = {
+    init: init,
+    reloadTable: reloadTable,
+    fetchJson: fetchJson,
+    parseJson: parseJson,
+    setBtnLoading: setBtnLoading,
+    showConfirmModal: showConfirmModal,
+    getModal: getModal,
+    hideModal: hideModal,
+};
+المشكله هنا ال edit modal مش بيرجع اصلا اى داتا ال input بتكون فاضيه ومعرفش الغلط فين
+وكمان ال tabs بتاعت اللغات مش بتكون ظاهره
+ايه المشكله بقى واحلها ازاى قولى قبل ما تكتب اى كود

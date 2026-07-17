@@ -82,7 +82,7 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive w-100">
-                        <table class="table table-striped table-row-bordered gy-3 gs-3 table-hover align-middle fs-7">
+                        <table class="table align-middle table-striped table-row-bordered gy-3 gs-3 table-hover fs-7">
                             {!! $dataTable->table() !!}
                         </table>
                     </div>
@@ -132,12 +132,11 @@
     window.showTrashed = false;
 </script>
 
-<script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/utils/alert.js') }}"></script>
-<script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/admin/employees/index.js') }}?v={{ time() }}">
+<script src="{{ asset('dashboard/assets/js/custom/utils/alert.js') }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/employees/index.js') }}?v={{ time() }}">
 </script>
-<script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/admin/employees/bulk_actions.js') }}?v={{ time() }}"></script>
-<script src="{{ asset('dashboard/themes/'. $theme_code .'/assets/js/custom/admin/employees/trashed_manager.js') }}?v={{ time() }}"></script>
-
+<script src="{{ asset('dashboard/assets/js/custom/admin/employees/bulk_actions.js') }}?v={{ time() }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/employees/trashed_manager.js') }}?v={{ time() }}"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         if (typeof window.Employees !== 'undefined' && window.Employees.init) {
