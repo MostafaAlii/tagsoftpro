@@ -21,8 +21,7 @@ const checkTrashed = () => {
                     window.showTrashed = false;
                     const btnText = document.getElementById("trashedBtnText");
                     btnText.textContent = window.translations.show_trashed;
-                    const table =
-                        window.LaravelDataTables["vendors_datatable"];
+                    const table = window.LaravelDataTables["vendors_datatable"];
                     table.ajax
                         .url(window.routes.index + "?show_trashed=false")
                         .load();
