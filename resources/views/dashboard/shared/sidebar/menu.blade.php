@@ -176,5 +176,17 @@
                 ],
             ],
         ])
+        @include('dashboard.shared.sidebar.submenu', [
+            'title' => trans('provider::providers.providers'),
+            'icon' => 'ti-award',
+            'open' => is_open(['admin.providers.index']),
+            'items' => [
+                [
+                    'title' => trans('provider::providers.providers'),
+                    'route' => route('admin.providers.index'),
+                    'active' => is_active('admin.providers.index'),
+                ],
+            ],
+        ])
     @endOwnerOnly
 </ul>

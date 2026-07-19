@@ -1,4 +1,5 @@
 {
     "Vendor": true,
-    "Zone": true
+    "Zone": true,
+    "Provider": true
 }
