@@ -164,5 +164,17 @@
                 ],
             ],
         ])
+        @include('dashboard.shared.sidebar.submenu', [
+            'title' => trans('zone::zones.zones'),
+            'icon' => 'ti-award',
+            'open' => is_open(['admin.zones.index']),
+            'items' => [
+                [
+                    'title' => trans('zone::zones.zones'),
+                    'route' => route('admin.zones.index'),
+                    'active' => is_active('admin.zones.index'),
+                ],
+            ],
+        ])
     @endOwnerOnly
 </ul>
