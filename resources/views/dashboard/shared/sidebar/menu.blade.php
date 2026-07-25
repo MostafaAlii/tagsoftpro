@@ -188,5 +188,18 @@
                 ],
             ],
         ])
+        {{-- Menu Items --}}
+        @include('dashboard.shared.sidebar.submenu', [
+            'title' => trans('dashboard/menu_items.menu_items'),
+            'icon' => 'ti-list',
+            'open' => is_open(['admin.menu_items.index']),
+            'items' => [
+                [
+                    'title' => trans('dashboard/menu_items.menu_items'),
+                    'route' => route('admin.menu_items.index'),
+                    'active' => is_active('admin.menu_items.index'),
+                ],
+            ],
+        ])
     @endOwnerOnly
 </ul>

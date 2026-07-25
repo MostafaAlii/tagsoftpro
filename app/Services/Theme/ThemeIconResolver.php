@@ -1,11 +1,7 @@
 <?php
-
 namespace App\Services\Theme;
-
 use Illuminate\Support\Facades\File;
-
-class ThemeIconResolver
-{
+class ThemeIconResolver {
     // ─── الكلاس الأساسي المطلوب مع كل ملف (fontawesome بيتحدد ديناميك) ───
     protected static array $baseClassMap = [
         'tabler-icons.min.css' => 'ti',       // محتاج .ti زيادة

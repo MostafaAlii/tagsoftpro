@@ -107,23 +107,6 @@ class MenuRepository implements MenuRepositoryInterface {
             ], 500);
         }
     }
-
-    /*public function toggleStatus(Menu $menu) {
-        try {
-            $newStatus = $menu->status === 'active' ? 'inactive' : 'active';
-            $menu->update(['status' => $newStatus]);
-            return response()->json([
-                'success' => true,
-                'badge' => $menu->status->badge(),
-                'message' => trans('dashboard/menus.status_updated'),
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => trans('dashboard/general.error_occurred'),
-            ], 500);
-        }
-    }*/
     public function toggleStatus(Menu $menu) {
         try {
             $newStatus = $menu->status === 'active' ? 'inactive' : 'active';

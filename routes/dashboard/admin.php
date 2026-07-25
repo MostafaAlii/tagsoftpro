@@ -82,7 +82,14 @@ Route::group(
             Route::post('menus/bulk-action', [Dashboard\MenuController::class, 'bulkAction'])->name('menus.bulkAction');
             Route::get('menus/has-trashed', [Dashboard\MenuController::class, 'hasTrashed'])->name('menus.hasTrashed');
             Route::resource('menus', Dashboard\MenuController::class)->except(['show']);
-            });
+            
+            Route::patch('menu_items/{menu_item}/toggle-status', [Dashboard\MenuItemController::class, 'toggleStatus'])->name('menu_items.toggleStatus');
+            Route::patch('menu_items/{menu_item}/restore', [Dashboard\MenuItemController::class, 'restore'])->name('menu_items.restore');
+            Route::delete('menu_items/{menu_item}/force-delete', [Dashboard\MenuItemController::class, 'forceDelete'])->name('menu_items.forceDelete');
+            Route::post('menu_items/bulk-action', [Dashboard\MenuItemController::class, 'bulkAction'])->name('menu_items.bulkAction');
+            Route::get('menu_items/has-trashed', [Dashboard\MenuItemController::class, 'hasTrashed'])->name('menu_items.hasTrashed');
+            Route::resource('menu_items', Dashboard\MenuItemController::class)->except(['show']);
+        });
         require __DIR__ . '../../auth.php';
     }
 );
