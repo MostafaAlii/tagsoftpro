@@ -18,7 +18,10 @@
         title="{{ trans('dashboard/general.edit') }}">
     <i class="ti ti-edit fs-5"></i>
 </button>
-
+<a href="{{ route('admin.menus.structure', $menu->id) }}" class="btn btn-sm btn-icon btn-light-info"
+    title="{{ trans('dashboard/menus.manage_structure') }}">
+    <i class="ti ti-sitemap fs-5"></i>
+</a>
 <button type="button" class="btn btn-sm btn-icon btn-light-danger btn-delete"
         data-id="{{ $menu->id }}"
         title="{{ trans('dashboard/general.delete') }}">

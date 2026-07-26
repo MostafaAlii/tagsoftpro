@@ -1,5 +1,6 @@
 <?php
 return [
+    'search' => 'بحث',
     'yes'                            =>                      'نعم',
     'no'                             =>                      'لا',
     'delete_confirm_title' => 'تأكيد الحذف',

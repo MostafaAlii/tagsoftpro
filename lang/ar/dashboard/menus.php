@@ -7,7 +7,16 @@ return [
     'create' => 'إضافة قائمة جديدة',
     'edit' => 'تعديل القائمة',
     'delete' => 'حذف القائمة',
-
+    'manage_structure' => 'إدارة هيكل القائمة',
+    'available_items' => 'العناصر المتاحة',
+    'structure_tree' => 'شجرة القائمة',
+    'drag_items_here' => 'اسحب العناصر هنا لبناء القائمة',
+    'no_available_items' => 'لا يوجد عناصر متاحة',
+    'confirm_remove_node' => 'هل أنت متأكد من إزالة هذا العنصر من الشجرة؟',
+    'node_added' => 'تمت إضافة العنصر',
+    'node_removed' => 'تم حذف العنصر',
+    'structure_updated' => 'تم حفظ الهيكل بنجاح',
+    'item_already_added' => 'هذا العنصر مضاف بالفعل',
     // Fields
     'key' => 'المفتاح',
     'name' => 'الاسم',

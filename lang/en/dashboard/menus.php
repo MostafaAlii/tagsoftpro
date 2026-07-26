@@ -7,7 +7,7 @@ return [
     'create' => 'Add New Menu',
     'edit' => 'Edit Menu',
     'delete' => 'Delete Menu',
-
+    'manage_structure' => 'Manage',
     // Fields
     'key' => 'Key',
     'name' => 'Name',

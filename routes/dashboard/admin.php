@@ -76,6 +76,11 @@ Route::group(
             Route::resource('permission_groups', Dashboard\PermissionGroupController::class)->except(['show']);
 
 
+            Route::get('menus/{menu}/structure', [Dashboard\MenuController::class, 'structure'])->name('menus.structure');
+            Route::post('menus/{menu}/structure/add-node', [Dashboard\MenuController::class, 'addNode'])->name('menus.structure.addNode');
+            Route::post('menus/{menu}/structure/save-tree', [Dashboard\MenuController::class, 'saveTree'])->name('menus.structure.saveTree');
+            Route::delete('menu-nodes/{menuNode}', [Dashboard\MenuController::class, 'removeNode'])->name('menus.structure.removeNode');
+            
             Route::patch('menus/{menu}/toggle-status', [Dashboard\MenuController::class, 'toggleStatus'])->name('menus.toggleStatus');
             Route::patch('menus/{menu}/restore', [Dashboard\MenuController::class, 'restore'])->name('menus.restore');
             Route::delete('menus/{menu}/force-delete', [Dashboard\MenuController::class, 'forceDelete'])->name('menus.forceDelete');

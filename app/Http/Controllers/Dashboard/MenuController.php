@@ -67,4 +67,26 @@ class MenuController extends Controller
     {
         return $this->menuRepository->hasTrashed();
     }
+
+
+
+    public function structure(Menu $menu)
+    {
+        return $this->menuRepository->structure($menu);
+    }
+
+    public function addNode(Request $request, Menu $menu)
+    {
+        return $this->menuRepository->addNode($menu, $request);
+    }
+
+    public function saveTree(Request $request, Menu $menu)
+    {
+        return $this->menuRepository->saveTree($menu, $request);
+    }
+
+    public function removeNode(\App\Models\MenuNode $menuNode)
+    {
+        return $this->menuRepository->removeNode($menuNode);
+    }
 }

@@ -5,7 +5,7 @@ namespace App\Models;
 use App\Enums\Menu\MenuStatus;
 use Astrotomic\Translatable\Contracts\Translatable as TranslatableContract;
 use Astrotomic\Translatable\Translatable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\{BelongsTo,HasMany};
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Translations\MenuTranslation;
 class Menu extends BaseModel implements TranslatableContract {
@@ -54,6 +54,11 @@ class Menu extends BaseModel implements TranslatableContract {
     public function updatedBy(): BelongsTo {
         return $this->belongsTo(Admin::class, 'updated_by');
     }
+
+    public function nodes(): HasMany {
+        return $this->hasMany(MenuNode::class);
+    }
+
 
     // ─── Methods ──────────────────────────────────────────────
     public function getTranslatedName(): string {

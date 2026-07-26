@@ -19,4 +19,9 @@ interface MenuRepositoryInterface
     public function forceDelete($id);
     public function bulkAction(Request $request);
     public function hasTrashed();
+
+    public function structure(Menu $menu);
+    public function addNode(Menu $menu, Request $request);
+    public function saveTree(Menu $menu, Request $request);
+    public function removeNode(\App\Models\MenuNode $menuNode);
 }

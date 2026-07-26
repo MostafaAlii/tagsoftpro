@@ -2,7 +2,7 @@
 namespace App\Repositories\Eloquents;
 use App\DataTables\Dashboard\Admin\MenuDataTable;
 use App\Repositories\Contracts\MenuRepositoryInterface;
-use App\Models\{Menu,Company};
+use App\Models\{Menu, Company, MenuNode, MenuItem};
 use App\Http\Requests\Dashboard\Menu\StoreMenuRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\{Request,JsonResponse};
@@ -215,5 +215,159 @@ class MenuRepository implements MenuRepositoryInterface {
         return response()->json([
             'hasTrashed' => Menu::onlyTrashed()->exists()
         ]);
+    }
+
+    public function structure(Menu $menu)
+    {
+        $locale = app()->getLocale();
+
+        $nodes = MenuNode::where('menu_id', $menu->id)
+            ->with(['menuItem.translations' => fn($q) => $q->where('locale', $locale)])
+            ->orderBy('sort_order')
+            ->get();
+
+        $tree = $this->buildTree($nodes);
+
+        $usedMenuItemIds = $nodes->pluck('menu_item_id')->toArray();
+
+        $availableItems = MenuItem::query()
+            ->whereNull('deleted_at')
+            ->whereNotIn('id', $usedMenuItemIds)
+            ->with(['translations' => fn($q) => $q->where('locale', $locale)])
+            ->get();
+
+        return view('dashboard.admin.menus.structure', [
+            'menu' => $menu,
+            'tree' => $tree,
+            'availableItems' => $availableItems,
+        ]);
+    }
+
+    protected function buildTree($nodes, ?int $parentId = null): array
+    {
+        return $nodes->where('parent_id', $parentId)->map(function ($node) use ($nodes) {
+            return [
+                'id' => $node->id,
+                'menu_item_id' => $node->menu_item_id,
+                'title' => $node->menuItem?->getTranslatedTitle() ?? '-',
+                'icon' => $node->menuItem?->icon,
+                'type' => $node->menuItem?->type?->value ?? $node->menuItem?->type,
+                'children' => $this->buildTree($nodes, $node->id),
+            ];
+        })->values()->all();
+    }
+
+    public function addNode(Menu $menu, Request $request)
+    {
+        try {
+            $request->validate([
+                'menu_item_id' => 'required|exists:menu_items,id',
+                'parent_id' => 'nullable|exists:menu_nodes,id',
+            ]);
+
+            $exists = MenuNode::where('menu_id', $menu->id)
+                ->where('menu_item_id', $request->menu_item_id)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trans('dashboard/menus.item_already_added'),
+                ], 422);
+            }
+
+            $maxSort = MenuNode::where('menu_id', $menu->id)
+                ->where('parent_id', $request->parent_id)
+                ->max('sort_order');
+
+            $node = MenuNode::create([
+                'menu_id' => $menu->id,
+                'menu_item_id' => $request->menu_item_id,
+                'parent_id' => $request->parent_id,
+                'sort_order' => ($maxSort ?? -1) + 1,
+                'created_by' => auth('admin')->id(),
+            ]);
+
+            $node->load(['menuItem.translations' => fn($q) => $q->where('locale', app()->getLocale())]);
+
+            return response()->json([
+                'success' => true,
+                'message' => trans('dashboard/menus.node_added'),
+                'node' => [
+                    'id' => $node->id,
+                    'menu_item_id' => $node->menu_item_id,
+                    'title' => $node->menuItem?->getTranslatedTitle() ?? '-',
+                    'icon' => $node->menuItem?->icon,
+                    'type' => $node->menuItem?->type?->value ?? $node->menuItem?->type,
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function saveTree(Menu $menu, Request $request)
+    {
+        try {
+            $request->validate([
+                'tree' => 'array',
+            ]);
+
+            DB::beginTransaction();
+            $this->persistTree($menu->id, $request->tree ?? [], null);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => trans('dashboard/menus.structure_updated'),
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    protected function persistTree(int $menuId, array $nodes, ?int $parentId): void
+    {
+        foreach ($nodes as $index => $node) {
+            MenuNode::where('id', $node['id'])
+                ->where('menu_id', $menuId)
+                ->update([
+                    'parent_id' => $parentId,
+                    'sort_order' => $index,
+                    'updated_by' => auth('admin')->id(),
+                ]);
+
+            if (!empty($node['children'])) {
+                $this->persistTree($menuId, $node['children'], (int) $node['id']);
+            }
+        }
+    }
+
+    public function removeNode(MenuNode $menuNode)
+    {
+        try {
+            $menuNode->delete();
+            return response()->json([
+                'success' => true,
+                'message' => trans('dashboard/menus.node_removed'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred'),
+            ], 500);
+        }
     }
 }
