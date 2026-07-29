@@ -2,12 +2,13 @@
 namespace App\Repositories\Eloquents;
 use App\DataTables\Dashboard\Admin\MenuItemDataTable;
 use App\Repositories\Contracts\MenuItemRepositoryInterface;
-use App\Models\{MenuItem,Company};
+use App\Models\{MenuItem,Company, MenuNode};
 use App\Http\Requests\Dashboard\MenuItem\StoreMenuItemRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\{Request,JsonResponse};
 use App\Actions\MenuItem\Bulk\BulkActionHandler;
 use App\Services\Theme\ThemeIconResolver;
+use App\Enums\MenuItem\MenuItemStatus;
 class MenuItemRepository implements MenuItemRepositoryInterface {
     public function index(MenuItemDataTable $menuItemDataTable) {
         $companies = Company::whereStatus('active')->get(['id', 'name']);
@@ -23,7 +24,55 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
         ]);
     }
 
-    public function store(StoreMenuItemRequest $request) {
+    public function list(Request $request) {
+        $locale = app()->getLocale();
+        $perPage = 10;
+        $page = max((int) $request->get('page', 1), 1);
+        $search = trim((string) $request->get('search', ''));
+        $trashed = $request->get('trashed', 'false') === 'true';
+        $menuId = $request->get('menu_id');
+        $query = MenuItem::query()->with(['translations' => fn($q) => $q->where('locale', $locale)]);
+        if ($trashed) {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+            if ($menuId) {
+                $usedIds = MenuNode::where('menu_id', $menuId)->pluck('menu_item_id')->toArray();
+                if (!empty($usedIds)) {
+                    $query->whereNotIn('id', $usedIds);
+                }
+            }
+        }
+        if ($search !== '') {
+            $query->whereHas('translations', function ($q) use ($search, $locale) {
+                $q->where('locale', $locale)->where('title', 'like', "%{$search}%");
+            });
+        }
+        $total = (clone $query)->count();
+        $items = $query->orderByDesc('created_at')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get()
+            ->map(function (MenuItem $item) {
+                return [
+                    'id' => $item->id,
+                    'title' => $item->getTranslatedTitle(),
+                    'icon' => $item->icon,
+                    'type' => $item->type->value ?? $item->type,
+                    'status' => $item->status->value ?? $item->status,
+                    'is_owner_only' => (bool) $item->is_owner_only,
+                ];
+            });
+        return response()->json([
+            'success' => true,
+            'items' => $items,
+            'has_more' => ($page * $perPage) < $total,
+            'next_page' => $page + 1,
+            'total' => $total,
+        ]);
+    }
+
+    /*public function store(StoreMenuItemRequest $request) {
         try {
             DB::beginTransaction();
             $menuItem = MenuItem::create([
@@ -59,6 +108,70 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
             return redirect()->route('admin.menu_items.index')->with('success', trans('dashboard/menu_items.created_successfully'));
         } catch (\Exception $e) {
             DB::rollBack();
+            return redirect()->route('admin.menu_items.index')->with('error', trans('dashboard/general.error_occurred') . ': ' . $e->getMessage());
+        }
+    }*/
+    public function store(StoreMenuItemRequest $request)
+    {
+        try {
+            DB::beginTransaction();
+            $menuItem = MenuItem::create([
+                'type' => $request->type,
+                'icon' => $request->icon,
+                'link_type' => $request->link_type,
+                'route_name' => $request->route_name,
+                'route_params' => $request->route_params,
+                'url' => $request->url,
+                'target' => $request->target ?? '_self',
+                'is_owner_only' => $request->is_owner_only ?? false,
+                'permission_name' => $request->permission_name,
+                'badge_text' => $request->badge_text,
+                'badge_color' => $request->badge_color,
+                'status' => $request->status,
+                'visible_from' => $request->visible_from,
+                'visible_until' => $request->visible_until,
+                'company_id' => $request->company_id,
+            ]);
+
+            if ($request->has('locales') && is_array($request->locales)) {
+                foreach ($request->locales as $locale => $data) {
+                    if (isset($data['title']) && !empty($data['title'])) {
+                        $menuItem->translations()->create([
+                            'locale' => $locale,
+                            'title' => $data['title'],
+                            'description' => $data['description'] ?? null,
+                        ]);
+                    }
+                }
+            }
+            DB::commit();
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => trans('dashboard/menu_items.created_successfully'),
+                    'item' => [
+                        'id' => $menuItem->id,
+                        'title' => $menuItem->getTranslatedTitle(),
+                        'icon' => $menuItem->icon,
+                        'type' => $menuItem->type->value ?? $menuItem->type,
+                        'status' => $menuItem->status->value ?? $menuItem->status,
+                        'is_owner_only' => (bool) $menuItem->is_owner_only,
+                    ],
+                ]);
+            }
+
+            return redirect()->route('admin.menu_items.index')->with('success', trans('dashboard/menu_items.created_successfully'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+                ], 500);
+            }
+
             return redirect()->route('admin.menu_items.index')->with('error', trans('dashboard/general.error_occurred') . ': ' . $e->getMessage());
         }
     }
@@ -119,13 +232,34 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
         }
     }
 
-    public function toggleStatus(MenuItem $menuItem) {
+    public function toggleStatus(MenuItem $menuItem)
+    {
         try {
-            $newStatus = $menuItem->status === 'active' ? 'inactive' : 'active';
+            $newStatus = $menuItem->status === MenuItemStatus::ACTIVE
+                ? MenuItemStatus::INACTIVE
+                : MenuItemStatus::ACTIVE;
+
             $menuItem->update(['status' => $newStatus]);
+
             return response()->json([
                 'success' => true,
                 'badge' => $menuItem->status->badge(),
+                'message' => trans('dashboard/menu_items.status_updated'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred'),
+            ], 500);
+        }
+    }
+
+    public function toggleOwnerOnly(MenuItem $menuItem) {
+        try {
+            $menuItem->update(['is_owner_only' => !$menuItem->is_owner_only]);
+            return response()->json([
+                'success' => true,
+                'is_owner_only' => (bool) $menuItem->is_owner_only,
                 'message' => trans('dashboard/menu_items.status_updated'),
             ]);
         } catch (\Exception $e) {
@@ -190,7 +324,7 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
         }
     }
 
-    public function bulkAction(Request $request): JsonResponse {
+    /*public function bulkAction(Request $request): JsonResponse {
         try {
             $ids = $request->ids;
             if (empty($ids)) {
@@ -207,6 +341,61 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
             return response()->json(['success' => true, 'message' => $message]);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }*/
+    public function bulkAction(Request $request): JsonResponse
+    {
+        try {
+            $ids = $request->ids;
+            $action = $request->action;
+
+            if (empty($ids)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trans('dashboard/menu_items.bulk_select_at_least_one'),
+                ]);
+            }
+
+            switch ($action) {
+                case 'delete':
+                    MenuItem::whereIn('id', $ids)->get()->each->delete();
+                    $message = trans('dashboard/menu_items.deleted_successfully');
+                    break;
+
+                case 'restore':
+                    MenuItem::onlyTrashed()->whereIn('id', $ids)->get()->each->restore();
+                    $message = trans('dashboard/menu_items.restored_successfully');
+                    break;
+
+                case 'force_delete':
+                    MenuItem::onlyTrashed()->whereIn('id', $ids)->get()->each->forceDelete();
+                    $message = trans('dashboard/menu_items.permanently_deleted');
+                    break;
+
+                case 'change_status':
+                    $status = $request->input('status');
+                    if (!in_array($status, \App\Enums\MenuItem\MenuItemStatus::values())) {
+                        throw new \InvalidArgumentException(trans('dashboard/general.error_occurred'));
+                    }
+                    MenuItem::whereIn('id', $ids)->update(['status' => $status]);
+                    $message = trans('dashboard/menu_items.status_updated');
+                    break;
+
+                default:
+                    throw new \InvalidArgumentException(trans('dashboard/general.error_occurred'));
+            }
+
+            return response()->json(['success' => true, 'message' => $message]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: trans('dashboard/general.error_occurred'),
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

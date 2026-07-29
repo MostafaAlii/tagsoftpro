@@ -67,4 +67,14 @@ class MenuItemController extends Controller
     {
         return $this->menuItemRepository->hasTrashed();
     }
+
+    public function list(Request $request)
+    {
+        return $this->menuItemRepository->list($request);
+    }
+
+    public function toggleOwnerOnly(MenuItem $menuItem)
+    {
+        return $this->menuItemRepository->toggleOwnerOnly($menuItem);
+    }
 }

@@ -87,7 +87,9 @@ Route::group(
             Route::post('menus/bulk-action', [Dashboard\MenuController::class, 'bulkAction'])->name('menus.bulkAction');
             Route::get('menus/has-trashed', [Dashboard\MenuController::class, 'hasTrashed'])->name('menus.hasTrashed');
             Route::resource('menus', Dashboard\MenuController::class)->except(['show']);
-            
+
+            Route::get('menu_items/list', [Dashboard\MenuItemController::class, 'list'])->name('menu_items.list');
+            Route::patch('menu_items/{menu_item}/toggle-owner', [Dashboard\MenuItemController::class, 'toggleOwnerOnly'])->name('menu_items.toggleOwnerOnly');
             Route::patch('menu_items/{menu_item}/toggle-status', [Dashboard\MenuItemController::class, 'toggleStatus'])->name('menu_items.toggleStatus');
             Route::patch('menu_items/{menu_item}/restore', [Dashboard\MenuItemController::class, 'restore'])->name('menu_items.restore');
             Route::delete('menu_items/{menu_item}/force-delete', [Dashboard\MenuItemController::class, 'forceDelete'])->name('menu_items.forceDelete');

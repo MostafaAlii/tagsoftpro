@@ -217,7 +217,7 @@ class MenuRepository implements MenuRepositoryInterface {
         ]);
     }
 
-    public function structure(Menu $menu)
+    /*public function structure(Menu $menu)
     {
         $locale = app()->getLocale();
 
@@ -240,6 +240,31 @@ class MenuRepository implements MenuRepositoryInterface {
             'menu' => $menu,
             'tree' => $tree,
             'availableItems' => $availableItems,
+        ]);
+    }*/
+    public function structure(Menu $menu)
+    {
+        $locale = app()->getLocale();
+
+        $nodes = MenuNode::where('menu_id', $menu->id)
+            ->with(['menuItem.translations' => fn($q) => $q->where('locale', $locale)])
+            ->orderBy('sort_order')
+            ->get();
+
+        $tree = $this->buildTree($nodes);
+
+        $companies = Company::whereStatus('active')->get(['id', 'name']);
+        $locales = array_keys(config('laravellocalization.supportedLocales'));
+        $icons = ThemeIconResolver::all();
+        $iconCssUrls = ThemeIconResolver::cssUrls();
+
+        return view('dashboard.admin.menus.structure', [
+            'menu' => $menu,
+            'tree' => $tree,
+            'companies' => $companies,
+            'locales' => $locales,
+            'icons' => $icons,
+            'iconCssUrls' => $iconCssUrls,
         ]);
     }
 

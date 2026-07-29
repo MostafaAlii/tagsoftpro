@@ -1,96 +1,743 @@
-بص ياسيدى عاوزين نغير كام حاجه هنا فى العناصر المتاحه
-احنا عاملينها كدا
-{{-- ─── العناصر المتاحة ─────────────────────────────── --}}
-        <div class="col-md-4">
-            <div class="card structure-panel">
-                <div class="card-header">
-                    <i class="ti ti-list-details me-2"></i>
-                    {{ trans('dashboard/menus.available_items') }}
-                </div>
-                <div class="card-body">
-                    <input type="text" id="searchAvailableItems" class="mb-3 form-control form-control-sm" placeholder="{{ trans('dashboard/general.search') }}...">
-                    <ul id="availableItemsList" class="available-items-list">
-                        @forelse($availableItems as $item)
-                        <li class="available-item" data-item-id="{{ $item->id }}"
-                            data-item-type="{{ $item->type->value ?? $item->type }}">
-                            <div class="node-content">
-                                <i class="ti ti-grip-vertical drag-handle"></i>
-                                @if($item->icon)
-                                <i class="{{ $item->icon }}"></i>
-                                @endif
-                                <span>{{ $item->getTranslatedTitle() }}</span>
-                            </div>
-                            <span class="badge bg-light text-dark node-badge">{{ $item->type->value ?? $item->type
-                                }}</span>
-                        </li>
-                        @empty
-                        <li class="py-4 text-center text-muted">
-                            {{ trans('dashboard/menus.no_available_items') }}
-                        </li>
-                        @endforelse
-                    </ul>
-                </div>
-            </div>
-        </div>
-----------------------------------------------
-اولا ده جدول ال menu_items
-Schema::create('menu_items', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->enum('type', ['link', 'dropdown', 'header', 'divider'])->default('link');
-            $table->string('icon')->nullable();
-            $table->enum('link_type', ['route', 'url', 'none'])->nullable();
-            $table->string('route_name')->nullable();
-            $table->json('route_params')->nullable();
-            $table->string('url')->nullable();
-            $table->enum('target', ['_self', '_blank'])->default('_self');
-            $table->boolean('is_owner_only')->default(false);
-            $table->string('permission_name')->nullable();
-            $table->string('badge_text')->nullable();
-            $table->string('badge_color')->nullable();
-            $table->enum('status', ['active', 'inactive'])->default('active');
-            $table->timestamp('visible_from')->nullable();
-            $table->timestamp('visible_until')->nullable();
-            $table->foreignId('company_id')->nullable()->constrained('companies')->nullOnDelete();
-            $table->foreignId('created_by')->nullable()->constrained('admins')->nullOnDelete();
-            $table->foreignId('updated_by')->nullable()->constrained('admins')->nullOnDelete();
-            $table->timestamps();
-            $table->softDeletes();
-            $table->index('status');
-            $table->index('company_id');
+// item.js
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function () {
+    const P = window.ItemPanel;
+
+    // ─── Icon Picker (select2) ─────────────────────────────────
+    const initIconPicker = () => {
+        const select = document.getElementById("panel_icon");
+        if (!select || select.dataset.select2Initialized === "true") return;
+        select.dataset.select2Initialized = "true";
+
+        $(select).select2({
+            dropdownParent: $(select).closest(".modal"),
+            templateResult: function (option) {
+                if (!option.id) return option.text;
+                return $(`<span><i class="${option.id}" style="margin-right:10px;font-size:18px;width:28px;display:inline-block;text-align:center;"></i> ${option.text}</span>`);
+            },
+            templateSelection: function (option) {
+                if (!option.id) return option.text;
+                return $(`<span><i class="${option.id}" style="margin-right:8px;"></i> ${option.text}</span>`);
+            },
+            allowClear: true,
+            placeholder: window.panelTranslations?.select_icon || "اختر أيقونة",
         });
-        Schema::create('menu_item_translations', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('menu_item_id')->constrained('menu_items')->cascadeOnDelete();
-            $table->string('locale')->index();
-            $table->string('title');
-            $table->string('description')->nullable();
-            $table->unique(['menu_item_id', 'locale']);
+
+        $(select).on("change", function () {
+            const preview = document.querySelector("#panel_icon_preview");
+            const val = $(select).val();
+            if (preview) preview.innerHTML = `<i class="${val || 'ti ti-users'}"></i>`;
         });
------------------------------------------------
-عاوز اعمل
-1- Create & Store بال ajax 
-    -- هيكون فى button اما اضغط عليه يفتح create bootstrap modal
-2- edit & update برده bootstrap modal
-3- ال status هتكون toggle button اقدر اعدل الحاله منها
-4- ال is_owner برده نفس الكلام
-5- عاوز يكون فى checkbox موجود 
-   -- اما يكون فيه checked items هتظهر dropdown menu جواها تعديل الحاله
-      وكمان حذف
-      فى حاله اختيار تعديل الحاله هيظهر modal فى الحاله الحاليه و ال items name و dropdown فيها الحالات
-      وفى حاله الحذف يظهر confirm modal برده
-6- فى حاله الحذف هيكون كدا فى item اتحذفت بالفعل فعاوز يظهر btn المحذوفات اما اضغظ عليه      
-   هيظهر الحاجات الى حذفناها بس هيكون بدل ال edit & delete icon هيكون restore و force delete
-   وبالنسبه لل dropdown هتكون الخيارات الى فيها حذف نهائى وخيار تانى استعاده
-   بحيث انه يعمل bulk restore او bulk force delete بنائا على item checked
-7- عاوز يكون فى infinty scroll بحيث انه لو العدد اكبر من 10 يظهر more اما اضغط عليه يزود 10 كمان وهكذا
-وعاوزك تقسم الكود بتاع ال js
-ل 3 ملفات
-1- items.js لعمليات ال crud الاساسيه و تعديل الحاله و ال is_owner
-2- item_trashed.js لعمليات تعديل الحاله الجماعى و الحذف الجماعى و كمان الاستعاده الجماعيه
-3- item_switcher.js للتبديل ال dropdown menu و ال button المحذوفات وكدا
-------------------------------------------------------------------------
-وده ال MenuItemRepository
+    };
+
+    const setIconValue = (value) => {
+        const select = $("#panel_icon");
+        select.val(value || "").trigger("change");
+    };
+
+    // ─── فتح المودال في وضع الإنشاء ──────────────────────────────
+    const openCreateModal = () => {
+        const form = document.getElementById("panelItemForm");
+        form.reset();
+        document.getElementById("panel_item_id").value = "";
+        document.getElementById("panelItemModalTitle").textContent = window.translations?.create || "إضافة";
+        setIconValue("");
+        document.getElementById("panelItemModalLoader").classList.add("d-none");
+        form.classList.remove("d-none");
+
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("panelItemModal"));
+        modal.show();
+    };
+
+    // ─── فتح المودال في وضع التعديل ──────────────────────────────
+    const openEditModal = async (id) => {
+        const modalEl = document.getElementById("panelItemModal");
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const form = document.getElementById("panelItemForm");
+        const loader = document.getElementById("panelItemModalLoader");
+
+        document.getElementById("panelItemModalTitle").textContent = window.translations?.edit || "تعديل";
+        form.classList.add("d-none");
+        loader.classList.remove("d-none");
+        modal.show();
+
+        try {
+            const res = await P.fetchJson(P.route("edit", id));
+            if (!res?.success) {
+                Alert.error(window.panelTranslations.error);
+                modal.hide();
+                return;
+            }
+
+            const data = res.data;
+            document.getElementById("panel_item_id").value = data.id;
+            document.getElementById("panel_type").value = data.type ?? "link";
+            document.getElementById("panel_link_type").value = data.link_type ?? "none";
+            document.getElementById("panel_route_name").value = data.route_name ?? "";
+            document.getElementById("panel_url").value = data.url ?? "";
+            document.getElementById("panel_target").value = data.target ?? "_self";
+            document.getElementById("panel_status").value = data.status ?? "active";
+            document.getElementById("panel_is_owner_only").value = data.is_owner_only ? "1" : "0";
+            document.getElementById("panel_permission_name").value = data.permission_name ?? "";
+            document.getElementById("panel_badge_text").value = data.badge_text ?? "";
+            document.getElementById("panel_badge_color").value = data.badge_color ?? "";
+
+            const visibleFrom = document.getElementById("panel_visible_from");
+            if (visibleFrom) visibleFrom.value = data.visible_from ? data.visible_from.replace(" ", "T") : "";
+
+            const visibleUntil = document.getElementById("panel_visible_until");
+            if (visibleUntil) visibleUntil.value = data.visible_until ? data.visible_until.replace(" ", "T") : "";
+
+            const companySelect = document.getElementById("panel_company_id");
+            if (companySelect) companySelect.value = data.company_id ?? "";
+
+            setIconValue(data.icon ?? "");
+
+            const translations = data.translations || [];
+            document.querySelectorAll('#panelItemForm [name^="locales["]').forEach((input) => {
+                const match = input.name.match(/locales\[([^\]]+)\]\[([^\]]+)\]/);
+                if (!match) return;
+                const [, locale, field] = match;
+                const t = translations.find((tr) => tr.locale === locale);
+                input.value = t ? (t[field] ?? "") : "";
+            });
+
+            loader.classList.add("d-none");
+            form.classList.remove("d-none");
+        } catch (err) {
+            console.error(err);
+            Alert.error(window.panelTranslations.error);
+            modal.hide();
+        }
+    };
+
+    // ─── حفظ (إنشاء أو تعديل) ─────────────────────────────────────
+    const saveItem = async () => {
+        const saveBtn = document.getElementById("panelItemSaveBtn");
+        const form = document.getElementById("panelItemForm");
+        const id = document.getElementById("panel_item_id").value;
+        const isEdit = !!id;
+
+        const formData = new FormData();
+        if (isEdit) formData.append("_method", "PUT");
+        formData.append("_token", document.querySelector('meta[name="csrf-token"]').content);
+
+        const fields = ["type", "icon", "link_type", "route_name", "url", "target", "status", "is_owner_only", "permission_name", "badge_text", "badge_color", "visible_from", "visible_until", "company_id"];
+        fields.forEach((f) => {
+            const input = form.querySelector(`[name="${f}"]`);
+            if (input) formData.append(f, input.value ?? "");
+        });
+
+        form.querySelectorAll('[name^="locales["]').forEach((input) => {
+            formData.append(input.name, input.value ?? "");
+        });
+
+        const indicatorLabel = saveBtn.querySelector(".indicator-label");
+        const indicatorProgress = saveBtn.querySelector(".indicator-progress");
+        indicatorLabel.classList.add("d-none");
+        indicatorProgress.classList.remove("d-none");
+        saveBtn.disabled = true;
+
+        try {
+            const url = isEdit ? P.route("update", id) : window.panelRoutes.store;
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    Accept: "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: formData,
+            });
+            const data = await res.json();
+
+            if (data?.success) {
+                Alert.success(data.message);
+                bootstrap.Modal.getInstance(document.getElementById("panelItemModal"))?.hide();
+                P.loadPage(true);
+            } else {
+                Alert.error(data?.message || window.panelTranslations.error);
+            }
+        } catch (err) {
+            console.error(err);
+            Alert.error(window.panelTranslations.error);
+        } finally {
+            indicatorLabel.classList.remove("d-none");
+            indicatorProgress.classList.add("d-none");
+            saveBtn.disabled = false;
+        }
+    };
+
+    // ─── حذف عنصر مفرد (Modal) ────────────────────────────────────
+    let pendingDeleteId = null;
+    const confirmModalEl = document.getElementById("panelConfirmModal");
+    const confirmModal = new bootstrap.Modal(confirmModalEl);
+    const confirmTitle = document.getElementById("panelConfirmTitle");
+    const confirmBody = document.getElementById("panelConfirmBody");
+    const confirmBtn = document.getElementById("panelConfirmBtn");
+
+    let confirmAction = null; // function to call on confirm
+
+    const openConfirm = (title, body, action) => {
+        confirmTitle.textContent = title;
+        confirmBody.textContent = body;
+        confirmAction = action;
+        confirmModal.show();
+    };
+
+    confirmBtn.addEventListener("click", async () => {
+        if (typeof confirmAction !== "function") return;
+
+        const indicatorLabel = confirmBtn.querySelector(".indicator-label");
+        const indicatorProgress = confirmBtn.querySelector(".indicator-progress");
+        indicatorLabel.classList.add("d-none");
+        indicatorProgress.classList.remove("d-none");
+        confirmBtn.disabled = true;
+
+        await confirmAction();
+
+        indicatorLabel.classList.remove("d-none");
+        indicatorProgress.classList.add("d-none");
+        confirmBtn.disabled = false;
+        confirmModal.hide();
+    });
+
+    // ─── Event Delegation ──────────────────────────────────────
+    document.addEventListener("click", (e) => {
+        if (e.target.closest("#btnCreatePanelItem")) {
+            openCreateModal();
+        }
+
+        if (e.target.closest("#panelItemSaveBtn")) {
+            saveItem();
+        }
+
+        const editBtn = e.target.closest(".btn-item-edit");
+        if (editBtn) {
+            openEditModal(editBtn.dataset.id);
+        }
+
+        const deleteBtn = e.target.closest(".btn-item-delete");
+        if (deleteBtn) {
+            pendingDeleteId = deleteBtn.dataset.id;
+            const li = deleteBtn.closest(".available-item");
+            const itemTitle = li?.querySelector(".node-title")?.textContent?.trim() || "";
+            const msg = (window.panelTranslations.confirm_delete || "")
+                .replace(":title", itemTitle);
+
+            openConfirm(
+                window.panelTranslations.delete_label || "حذف",
+                msg,
+                async () => {
+                    try {
+                        const res = await P.fetchJson(P.route("destroy", pendingDeleteId), "DELETE", {});
+                        if (res.success) {
+                            Alert.success(res.message);
+                            document.querySelector(`.available-item[data-item-id="${pendingDeleteId}"]`)?.remove();
+                            P.checkHasTrashed();
+                        } else {
+                            Alert.error(res.message || window.panelTranslations.error);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        Alert.error(window.panelTranslations.error);
+                    }
+                }
+            );
+        }
+    });
+
+    // ─── تبديل الحالة (status) ─────────────────────────────────
+    document.addEventListener("change", async (e) => {
+        const cb = e.target.closest(".toggle-item-status");
+        if (!cb) return;
+
+        try {
+            const res = await P.fetchJson(P.route("toggleStatus", cb.dataset.id), "PATCH", {});
+            if (!res.success) {
+                cb.checked = !cb.checked;
+                Alert.error(res.message || window.panelTranslations.error);
+            }
+        } catch (err) {
+            cb.checked = !cb.checked;
+            console.error(err);
+            Alert.error(window.panelTranslations.error);
+        }
+    });
+
+    // ─── تبديل is_owner_only ─────────────────────────────────────
+    document.addEventListener("change", async (e) => {
+        const cb = e.target.closest(".toggle-item-owner");
+        if (!cb) return;
+
+        try {
+            const res = await P.fetchJson(P.route("toggleOwner", cb.dataset.id), "PATCH", {});
+            if (!res.success) {
+                cb.checked = !cb.checked;
+                Alert.error(res.message || window.panelTranslations.error);
+            }
+        } catch (err) {
+            cb.checked = !cb.checked;
+            console.error(err);
+            Alert.error(window.panelTranslations.error);
+        }
+    });
+
+    // ─── تفعيل select2 عند فتح المودال ────────────────────────────
+    document.addEventListener("shown.bs.modal", (e) => {
+        if (e.target.id !== "panelItemModal") return;
+        initIconPicker();
+    });
+
+    document.addEventListener("hidden.bs.modal", (e) => {
+        if (e.target.id !== "panelItemModal") return;
+        setIconValue("");
+    });
+});
+-----------------------
+// item_switcher.js
+"use strict";
+
+window.ItemPanel = (function () {
+    const csrfToken = () =>
+        document.querySelector('meta[name="csrf-token"]').content;
+
+    const fetchJson = async (url, method = "GET", body = null) => {
+        const options = {
+            method,
+            headers: {
+                Accept: "application/json",
+                "X-CSRF-TOKEN": csrfToken(),
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        };
+        if (body !== null) {
+            options.headers["Content-Type"] = "application/json";
+            options.body = JSON.stringify(body);
+        }
+        const res = await fetch(url, options);
+        return res.json();
+    };
+
+    const route = (name, id) => window.panelRoutes[name].replace("__ID__", id);
+
+    // ─── الحالة العامة ───────────────────────────────────────────
+    const state = {
+        page: 1,
+        loading: false,
+        hasMore: true,
+        search: "",
+        trashed: false,
+        selectedIds: new Set(),
+    };
+
+    const els = {};
+
+    const initEls = () => {
+        els.list = document.getElementById("availableItemsList");
+        els.loader = document.getElementById("panelLoader");
+        els.emptyMsg = document.getElementById("panelEmptyMsg");
+        els.loadMoreBtn = document.getElementById("btnLoadMore");
+        els.searchInput = document.getElementById("searchAvailableItems");
+        els.bulkBar = document.getElementById("panelBulkBar");
+        els.selectedCount = document.getElementById("panelSelectedCount");
+        els.trashedToggleBtn = document.getElementById("btnTogglePanelTrashed");
+        els.trashedToggleText = document.getElementById("panelTrashedBtnText");
+        els.createBtn = document.getElementById("btnCreatePanelItem");
+        els.panelTitle = document.getElementById("panelTitle");
+
+        els.bulkChangeStatusBtn = document.getElementById("btnBulkChangeStatus");
+        els.bulkDeleteBtn = document.getElementById("btnBulkDelete");
+        els.bulkRestoreBtn = document.getElementById("btnBulkRestore");
+        els.bulkForceDeleteBtn = document.getElementById("btnBulkForceDelete");
+    };
+
+    // ─── بناء عنصر li (active أو trashed) ──────────────────────
+    const buildItemLi = (item) => {
+        const li = document.createElement("li");
+        li.className = "available-item";
+        li.dataset.itemId = item.id;
+        li.dataset.itemType = item.type;
+
+        const iconHtml = item.icon ? `<i class="${item.icon}"></i>` : "";
+
+        if (state.trashed) {
+            li.innerHTML = `
+                <div class="node-content">
+                    <input type="checkbox" class="form-check-input item-checkbox me-2" data-item-id="${item.id}">
+                    ${iconHtml}
+                    <span class="node-title">${item.title}</span>
+                    <span class="badge bg-light text-dark node-badge">${item.type}</span>
+                </div>
+                <div class="item-actions d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-sm btn-icon btn-light-success btn-item-restore" data-id="${item.id}" title="${window.translations?.restore || 'استعادة'}">
+                        <i class="ti ti-refresh fs-6"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-icon btn-light-danger btn-item-force-delete" data-id="${item.id}" title="${window.translations?.force_delete || 'حذف نهائي'}">
+                        <i class="ti ti-trash-off fs-6"></i>
+                    </button>
+                </div>
+            `;
+        } else {
+            li.innerHTML = `
+                <div class="node-content">
+                    <input type="checkbox" class="form-check-input item-checkbox me-2" data-item-id="${item.id}">
+                    <i class="ti ti-grip-vertical drag-handle"></i>
+                    ${iconHtml}
+                    <span class="node-title">${item.title}</span>
+                    <span class="badge bg-light text-dark node-badge">${item.type}</span>
+                </div>
+                <div class="item-actions d-flex align-items-center gap-2">
+                    <div class="form-check form-switch m-0" title="${window.translations?.status || 'الحالة'}">
+                        <input class="form-check-input toggle-item-status" type="checkbox" data-id="${item.id}" ${item.status === "active" ? "checked" : ""}>
+                    </div>
+                    <div class="form-check form-switch m-0" title="${window.translations?.is_owner_only || 'مالك فقط'}">
+                        <input class="form-check-input toggle-item-owner" type="checkbox" data-id="${item.id}" ${item.is_owner_only ? "checked" : ""}>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-icon btn-light-warning btn-item-edit" data-id="${item.id}">
+                        <i class="ti ti-edit fs-6"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-icon btn-light-danger btn-item-delete" data-id="${item.id}">
+                        <i class="ti ti-trash fs-6"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        return li;
+    };
+
+    // ─── تحميل صفحة من العناصر ────────────────────────────────
+    const loadPage = async (reset = false) => {
+        if (state.loading) return;
+        if (reset) {
+            state.page = 1;
+            state.hasMore = true;
+            els.list.innerHTML = "";
+            state.selectedIds.clear();
+            updateBulkBar();
+        }
+        if (!state.hasMore) return;
+
+        state.loading = true;
+        els.loader.classList.remove("d-none");
+        els.loadMoreBtn.classList.add("d-none");
+
+        const params = new URLSearchParams({
+            page: state.page,
+            trashed: state.trashed ? "true" : "false",
+            search: state.search,
+        });
+        if (!state.trashed) params.append("menu_id", window.panelMenuId);
+
+        try {
+            const res = await fetchJson(`${window.panelRoutes.list}?${params.toString()}`);
+            if (res.success) {
+                res.items.forEach((item) => {
+                    els.list.appendChild(buildItemLi(item));
+                });
+                state.hasMore = res.has_more;
+                state.page = res.next_page;
+
+                els.emptyMsg.classList.toggle("d-none", els.list.children.length > 0);
+                els.loadMoreBtn.classList.toggle("d-none", !state.hasMore);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            state.loading = false;
+            els.loader.classList.add("d-none");
+        }
+    };
+
+    // ─── تحديث شريط الإجراءات الجماعية ──────────────────────────
+    const updateBulkBar = () => {
+        const count = state.selectedIds.size;
+        els.selectedCount.textContent = count;
+        els.bulkBar.classList.toggle("d-none", count === 0);
+        els.bulkBar.classList.toggle("d-flex", count > 0);
+
+        els.bulkChangeStatusBtn.classList.toggle("d-none", state.trashed);
+        els.bulkDeleteBtn.classList.toggle("d-none", state.trashed);
+        els.bulkRestoreBtn.classList.toggle("d-none", !state.trashed);
+        els.bulkForceDeleteBtn.classList.toggle("d-none", !state.trashed);
+    };
+
+    // ─── التحقق من وجود عناصر محذوفة (لإظهار زرار المحذوفات) ────
+    const checkHasTrashed = async () => {
+        try {
+            const res = await fetchJson(window.panelRoutes.hasTrashed);
+            els.trashedToggleBtn.style.display = res.hasTrashed ? "inline-block" : (state.trashed ? "inline-block" : "none");
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    // ─── تبديل بين active / trashed ─────────────────────────────
+    const toggleTrashedMode = () => {
+        state.trashed = !state.trashed;
+
+        els.trashedToggleText.textContent = state.trashed
+            ? window.panelTranslations.show_active_label
+            : window.panelTranslations.show_trashed_label;
+
+        els.trashedToggleBtn.classList.toggle("btn-light-danger", !state.trashed);
+        els.trashedToggleBtn.classList.toggle("btn-light-success", state.trashed);
+
+        els.createBtn.classList.toggle("d-none", state.trashed);
+
+        els.panelTitle.textContent = state.trashed
+            ? window.panelTranslations.show_trashed_label
+            : window.panelTranslations.menu_items_title;
+
+        loadPage(true);
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initEls();
+        loadPage(true);
+        checkHasTrashed();
+
+        els.loadMoreBtn.addEventListener("click", () => loadPage(false));
+
+        let searchTimeout;
+        els.searchInput.addEventListener("keyup", () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                state.search = els.searchInput.value.trim();
+                loadPage(true);
+            }, 350);
+        });
+
+        els.trashedToggleBtn.addEventListener("click", toggleTrashedMode);
+
+        // ─── تحديد/إلغاء تحديد عنصر ──────────────────────────────
+        document.addEventListener("change", (e) => {
+            const cb = e.target.closest(".item-checkbox");
+            if (!cb) return;
+
+            const id = cb.dataset.itemId;
+            if (cb.checked) {
+                state.selectedIds.add(id);
+            } else {
+                state.selectedIds.delete(id);
+            }
+            updateBulkBar();
+        });
+    });
+
+    return {
+        state,
+        els: () => els,
+        loadPage,
+        updateBulkBar,
+        checkHasTrashed,
+        fetchJson,
+        route,
+        buildItemLi,
+    };
+})();
+------------------------------
+// item_trashed.js
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function () {
+    const P = window.ItemPanel;
+
+    const confirmModalEl = document.getElementById("panelConfirmModal");
+    const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
+    const confirmTitle = document.getElementById("panelConfirmTitle");
+    const confirmBody = document.getElementById("panelConfirmBody");
+    const confirmBtn = document.getElementById("panelConfirmBtn");
+    let confirmAction = null;
+
+    const openConfirm = (title, body, action) => {
+        confirmTitle.textContent = title;
+        confirmBody.textContent = body;
+        confirmAction = action;
+        confirmModal.show();
+    };
+
+    confirmBtn.addEventListener("click", async () => {
+        if (typeof confirmAction !== "function") return;
+
+        const indicatorLabel = confirmBtn.querySelector(".indicator-label");
+        const indicatorProgress = confirmBtn.querySelector(".indicator-progress");
+        indicatorLabel.classList.add("d-none");
+        indicatorProgress.classList.remove("d-none");
+        confirmBtn.disabled = true;
+
+        await confirmAction();
+
+        indicatorLabel.classList.remove("d-none");
+        indicatorProgress.classList.add("d-none");
+        confirmBtn.disabled = false;
+        confirmModal.hide();
+    });
+
+    // ─── استعادة / حذف نهائي (مفرد) ────────────────────────────
+    document.addEventListener("click", (e) => {
+        const restoreBtn = e.target.closest(".btn-item-restore");
+        if (restoreBtn) {
+            const id = restoreBtn.dataset.id;
+            openConfirm(
+                window.translations?.restore || "استعادة",
+                window.panelTranslations.confirm_restore,
+                async () => {
+                    try {
+                        const res = await P.fetchJson(P.route("restore", id), "PATCH", {});
+                        if (res.success) {
+                            Alert.success(res.message);
+                            document.querySelector(`.available-item[data-item-id="${id}"]`)?.remove();
+                            P.checkHasTrashed();
+                        } else {
+                            Alert.error(res.message || window.panelTranslations.error);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        Alert.error(window.panelTranslations.error);
+                    }
+                }
+            );
+        }
+
+        const forceDeleteBtn = e.target.closest(".btn-item-force-delete");
+        if (forceDeleteBtn) {
+            const id = forceDeleteBtn.dataset.id;
+            openConfirm(
+                window.translations?.force_delete || "حذف نهائي",
+                window.panelTranslations.confirm_force_delete,
+                async () => {
+                    try {
+                        const res = await P.fetchJson(P.route("forceDelete", id), "DELETE", {});
+                        if (res.success) {
+                            Alert.success(res.message);
+                            document.querySelector(`.available-item[data-item-id="${id}"]`)?.remove();
+                        } else {
+                            Alert.error(res.message || window.panelTranslations.error);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        Alert.error(window.panelTranslations.error);
+                    }
+                }
+            );
+        }
+    });
+
+    // ─── حذف جماعي (Active mode) ──────────────────────────────────
+    document.getElementById("btnBulkDelete").addEventListener("click", () => {
+        if (P.state.selectedIds.size === 0) {
+            Alert.error(window.panelTranslations.select_at_least_one);
+            return;
+        }
+        openConfirm(
+            window.translations?.delete_selected || "حذف المحدد",
+            window.panelTranslations.confirm_bulk_delete,
+            () => runBulkAction("delete")
+        );
+    });
+
+    // ─── استرجاع جماعي (Trashed mode) ─────────────────────────────
+    document.getElementById("btnBulkRestore").addEventListener("click", () => {
+        if (P.state.selectedIds.size === 0) {
+            Alert.error(window.panelTranslations.select_at_least_one);
+            return;
+        }
+        openConfirm(
+            window.translations?.bulk_restore || "استعادة المحدد",
+            window.panelTranslations.confirm_bulk_restore,
+            () => runBulkAction("restore")
+        );
+    });
+
+    // ─── حذف نهائي جماعي (Trashed mode) ────────────────────────────
+    document.getElementById("btnBulkForceDelete").addEventListener("click", () => {
+        if (P.state.selectedIds.size === 0) {
+            Alert.error(window.panelTranslations.select_at_least_one);
+            return;
+        }
+        openConfirm(
+            window.translations?.bulk_force_delete || "حذف نهائي للمحدد",
+            window.panelTranslations.confirm_bulk_force_delete,
+            () => runBulkAction("force_delete")
+        );
+    });
+
+    const runBulkAction = async (action, extraParams = {}) => {
+        try {
+            const res = await P.fetchJson(window.panelRoutes.bulkAction, "POST", {
+                action,
+                ids: Array.from(P.state.selectedIds),
+                ...extraParams,
+            });
+
+            if (res.success) {
+                Alert.success(res.message);
+                P.loadPage(true);
+                P.checkHasTrashed();
+            } else {
+                Alert.error(res.message || window.panelTranslations.error);
+            }
+        } catch (err) {
+            console.error(err);
+            Alert.error(window.panelTranslations.error);
+        }
+    };
+
+    // ─── تعديل حالة جماعي ──────────────────────────────────────────
+    const bulkStatusModalEl = document.getElementById("panelBulkStatusModal");
+    const bulkStatusModal = bootstrap.Modal.getOrCreateInstance(bulkStatusModalEl);
+    const bulkStatusItemsList = document.getElementById("panelBulkStatusItemsList");
+    const bulkStatusSelect = document.getElementById("panelBulkStatusSelect");
+    const bulkStatusConfirmBtn = document.getElementById("panelBulkStatusConfirmBtn");
+
+    document.getElementById("btnBulkChangeStatus").addEventListener("click", () => {
+        if (P.state.selectedIds.size === 0) {
+            Alert.error(window.panelTranslations.select_at_least_one);
+            return;
+        }
+
+        bulkStatusItemsList.innerHTML = "";
+        P.state.selectedIds.forEach((id) => {
+            const li = document.querySelector(`.available-item[data-item-id="${id}"]`);
+            const title = li?.querySelector(".node-title")?.textContent || `#${id}`;
+            const itemEl = document.createElement("li");
+            itemEl.textContent = title;
+            bulkStatusItemsList.appendChild(itemEl);
+        });
+
+        bulkStatusModal.show();
+    });
+
+    bulkStatusConfirmBtn.addEventListener("click", async () => {
+        const indicatorLabel = bulkStatusConfirmBtn.querySelector(".indicator-label");
+        const indicatorProgress = bulkStatusConfirmBtn.querySelector(".indicator-progress");
+        indicatorLabel.classList.add("d-none");
+        indicatorProgress.classList.remove("d-none");
+        bulkStatusConfirmBtn.disabled = true;
+
+        await runBulkAction("change_status", { status: bulkStatusSelect.value });
+
+        indicatorLabel.classList.remove("d-none");
+        indicatorProgress.classList.add("d-none");
+        bulkStatusConfirmBtn.disabled = false;
+        bulkStatusModal.hide();
+    });
+});
+-------------------------------
+// MenuRepository
+<?php
+namespace App\Repositories\Eloquents;
+use App\DataTables\Dashboard\Admin\MenuDataTable;
+use App\Repositories\Contracts\MenuRepositoryInterface;
+use App\Models\{Menu, Company, MenuNode, MenuItem};
+use App\Http\Requests\Dashboard\Menu\StoreMenuRequest;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\{Request,JsonResponse};
+use App\Actions\Menu\Bulk\BulkActionHandler;
+use App\Services\Theme\ThemeIconResolver;
+
 class MenuRepository implements MenuRepositoryInterface {
     public function index(MenuDataTable $menuDataTable) {
         $companies = Company::whereStatus('active')->get(['id', 'name']);
@@ -299,7 +946,7 @@ class MenuRepository implements MenuRepositoryInterface {
         ]);
     }
 
-    public function structure(Menu $menu)
+    /*public function structure(Menu $menu)
     {
         $locale = app()->getLocale();
 
@@ -322,6 +969,31 @@ class MenuRepository implements MenuRepositoryInterface {
             'menu' => $menu,
             'tree' => $tree,
             'availableItems' => $availableItems,
+        ]);
+    }*/
+    public function structure(Menu $menu)
+    {
+        $locale = app()->getLocale();
+
+        $nodes = MenuNode::where('menu_id', $menu->id)
+            ->with(['menuItem.translations' => fn($q) => $q->where('locale', $locale)])
+            ->orderBy('sort_order')
+            ->get();
+
+        $tree = $this->buildTree($nodes);
+
+        $companies = Company::whereStatus('active')->get(['id', 'name']);
+        $locales = array_keys(config('laravellocalization.supportedLocales'));
+        $icons = ThemeIconResolver::all();
+        $iconCssUrls = ThemeIconResolver::cssUrls();
+
+        return view('dashboard.admin.menus.structure', [
+            'menu' => $menu,
+            'tree' => $tree,
+            'companies' => $companies,
+            'locales' => $locales,
+            'icons' => $icons,
+            'iconCssUrls' => $iconCssUrls,
         ]);
     }
 
@@ -453,8 +1125,19 @@ class MenuRepository implements MenuRepositoryInterface {
         }
     }
 }
-------------------------------
-وده ال MenuItemRepository
+----------------------------------
+// MenuItemRepository
+<?php
+namespace App\Repositories\Eloquents;
+use App\DataTables\Dashboard\Admin\MenuItemDataTable;
+use App\Repositories\Contracts\MenuItemRepositoryInterface;
+use App\Models\{MenuItem,Company};
+use App\Http\Requests\Dashboard\MenuItem\StoreMenuItemRequest;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\{Request,JsonResponse};
+use App\Actions\MenuItem\Bulk\BulkActionHandler;
+use App\Services\Theme\ThemeIconResolver;
+use App\Models\MenuNode;
 class MenuItemRepository implements MenuItemRepositoryInterface {
     public function index(MenuItemDataTable $menuItemDataTable) {
         $companies = Company::whereStatus('active')->get(['id', 'name']);
@@ -470,7 +1153,55 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
         ]);
     }
 
-    public function store(StoreMenuItemRequest $request) {
+    public function list(Request $request) {
+        $locale = app()->getLocale();
+        $perPage = 10;
+        $page = max((int) $request->get('page', 1), 1);
+        $search = trim((string) $request->get('search', ''));
+        $trashed = $request->get('trashed', 'false') === 'true';
+        $menuId = $request->get('menu_id');
+        $query = MenuItem::query()->with(['translations' => fn($q) => $q->where('locale', $locale)]);
+        if ($trashed) {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+            if ($menuId) {
+                $usedIds = MenuNode::where('menu_id', $menuId)->pluck('menu_item_id')->toArray();
+                if (!empty($usedIds)) {
+                    $query->whereNotIn('id', $usedIds);
+                }
+            }
+        }
+        if ($search !== '') {
+            $query->whereHas('translations', function ($q) use ($search, $locale) {
+                $q->where('locale', $locale)->where('title', 'like', "%{$search}%");
+            });
+        }
+        $total = (clone $query)->count();
+        $items = $query->orderByDesc('created_at')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get()
+            ->map(function (MenuItem $item) {
+                return [
+                    'id' => $item->id,
+                    'title' => $item->getTranslatedTitle(),
+                    'icon' => $item->icon,
+                    'type' => $item->type->value ?? $item->type,
+                    'status' => $item->status->value ?? $item->status,
+                    'is_owner_only' => (bool) $item->is_owner_only,
+                ];
+            });
+        return response()->json([
+            'success' => true,
+            'items' => $items,
+            'has_more' => ($page * $perPage) < $total,
+            'next_page' => $page + 1,
+            'total' => $total,
+        ]);
+    }
+
+    /*public function store(StoreMenuItemRequest $request) {
         try {
             DB::beginTransaction();
             $menuItem = MenuItem::create([
@@ -506,6 +1237,70 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
             return redirect()->route('admin.menu_items.index')->with('success', trans('dashboard/menu_items.created_successfully'));
         } catch (\Exception $e) {
             DB::rollBack();
+            return redirect()->route('admin.menu_items.index')->with('error', trans('dashboard/general.error_occurred') . ': ' . $e->getMessage());
+        }
+    }*/
+    public function store(StoreMenuItemRequest $request)
+    {
+        try {
+            DB::beginTransaction();
+            $menuItem = MenuItem::create([
+                'type' => $request->type,
+                'icon' => $request->icon,
+                'link_type' => $request->link_type,
+                'route_name' => $request->route_name,
+                'route_params' => $request->route_params,
+                'url' => $request->url,
+                'target' => $request->target ?? '_self',
+                'is_owner_only' => $request->is_owner_only ?? false,
+                'permission_name' => $request->permission_name,
+                'badge_text' => $request->badge_text,
+                'badge_color' => $request->badge_color,
+                'status' => $request->status,
+                'visible_from' => $request->visible_from,
+                'visible_until' => $request->visible_until,
+                'company_id' => $request->company_id,
+            ]);
+
+            if ($request->has('locales') && is_array($request->locales)) {
+                foreach ($request->locales as $locale => $data) {
+                    if (isset($data['title']) && !empty($data['title'])) {
+                        $menuItem->translations()->create([
+                            'locale' => $locale,
+                            'title' => $data['title'],
+                            'description' => $data['description'] ?? null,
+                        ]);
+                    }
+                }
+            }
+            DB::commit();
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => trans('dashboard/menu_items.created_successfully'),
+                    'item' => [
+                        'id' => $menuItem->id,
+                        'title' => $menuItem->getTranslatedTitle(),
+                        'icon' => $menuItem->icon,
+                        'type' => $menuItem->type->value ?? $menuItem->type,
+                        'status' => $menuItem->status->value ?? $menuItem->status,
+                        'is_owner_only' => (bool) $menuItem->is_owner_only,
+                    ],
+                ]);
+            }
+
+            return redirect()->route('admin.menu_items.index')->with('success', trans('dashboard/menu_items.created_successfully'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trans('dashboard/general.error_occurred') . ': ' . $e->getMessage(),
+                ], 500);
+            }
+
             return redirect()->route('admin.menu_items.index')->with('error', trans('dashboard/general.error_occurred') . ': ' . $e->getMessage());
         }
     }
@@ -573,6 +1368,22 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
             return response()->json([
                 'success' => true,
                 'badge' => $menuItem->status->badge(),
+                'message' => trans('dashboard/menu_items.status_updated'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => trans('dashboard/general.error_occurred'),
+            ], 500);
+        }
+    }
+
+    public function toggleOwnerOnly(MenuItem $menuItem) {
+        try {
+            $menuItem->update(['is_owner_only' => !$menuItem->is_owner_only]);
+            return response()->json([
+                'success' => true,
+                'is_owner_only' => (bool) $menuItem->is_owner_only,
                 'message' => trans('dashboard/menu_items.status_updated'),
             ]);
         } catch (\Exception $e) {
@@ -668,6 +1479,587 @@ class MenuItemRepository implements MenuItemRepositoryInterface {
         ]);
     }
 }
-بالله عليك اكتب الكود كامل لو سمحت
+-------------------------------
+// Menu Modal
+class Menu extends BaseModel implements TranslatableContract {
+    use Translatable, SoftDeletes;
+    protected $table = 'menus';
+    public $translationModel = MenuTranslation::class;
+    protected $fillable = [
+        'uuid',
+        'key',
+        'route_prefix',
+        'icon',
+        'status',
+        'company_id',
+        'created_by',
+        'updated_by',
+    ];
+
+    public $translatedAttributes = ['name', 'description'];
+    protected $casts = [
+        'status' => MenuStatus::class,
+    ];
+
+    // ─── Boot ──────────────────────────────────────────────
+    protected static function booted(): void {
+        static::addGlobalScope(new Scopes\CompanyScope());
+    }
+
+    // ─── Scopes ──────────────────────────────────────────────
+    public function scopeActive($query) {
+        return $query->where('status', MenuStatus::ACTIVE);
+    }
+
+    public function scopeInactive($query) {
+        return $query->where('status', MenuStatus::INACTIVE);
+    }
+
+    // ─── Relationships ──────────────────────────────────────
+    public function company(): BelongsTo {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function createdBy(): BelongsTo {
+        return $this->belongsTo(Admin::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo {
+        return $this->belongsTo(Admin::class, 'updated_by');
+    }
+
+    public function nodes(): HasMany {
+        return $this->hasMany(MenuNode::class);
+    }
 
 
+    // ─── Methods ──────────────────────────────────────────────
+    public function getTranslatedName(): string {
+        return $this->translate(app()->getLocale())?->name
+            ?? $this->translate('ar')?->name
+            ?? $this->name
+            ?? '-';
+    }
+
+    public function getTranslatedDescription(): ?string {
+        return $this->translate(app()->getLocale())?->description
+            ?? $this->translate('ar')?->description;
+    }
+}
+--------------
+// MenuStatus
+enum MenuStatus: string {
+    case ACTIVE = 'active';
+    case INACTIVE = 'inactive';
+    public function badge(): string {
+        return match ($this) {
+            self::ACTIVE => '<span class="badge bg-success">' . trans('dashboard/menus.status_active') . '</span>',
+            self::INACTIVE => '<span class="badge bg-danger">' . trans('dashboard/menus.status_inactive') . '</span>',
+        };
+    }
+
+    public static function values(): array {
+        return array_column(self::cases(), 'value');
+    }
+
+    public static function options(): array {
+        return [
+            self::ACTIVE->value => trans('dashboard/menus.status_active'),
+            self::INACTIVE->value => trans('dashboard/menus.status_inactive'),
+        ];
+    }
+}
+--------------------------
+// MenuItem Modal
+class MenuItem extends BaseModel implements TranslatableContract {
+    use Translatable, SoftDeletes;
+    protected $table = 'menu_items';
+    protected $fillable = [
+        'uuid',
+        'type',
+        'icon',
+        'link_type',
+        'route_name',
+        'route_params',
+        'url',
+        'target',
+        'is_owner_only',
+        'permission_name',
+        'badge_text',
+        'badge_color',
+        'status',
+        'visible_from',
+        'visible_until',
+        'company_id',
+        'created_by',
+        'updated_by',
+    ];
+    public $translatedAttributes = ['title', 'description'];
+    protected $casts = [
+        'type' => MenuItemType::class,
+        'link_type' => MenuItemLinkType::class,
+        'target' => MenuItemTarget::class,
+        'status' => MenuItemStatus::class,
+        'route_params' => 'array',
+        'is_owner_only' => 'boolean',
+        'visible_from' => 'datetime',
+        'visible_until' => 'datetime',
+    ];
+
+    // ─── Boot ──────────────────────────────────────────────
+    protected static function booted(): void {
+        static::addGlobalScope(new Scopes\CompanyScope());
+    }
+
+    // ─── Scopes ──────────────────────────────────────────────
+    public function scopeActive($query) {
+        return $query->where('status', MenuItemStatus::ACTIVE);
+    }
+
+    public function scopeInactive($query) {
+        return $query->where('status', MenuItemStatus::INACTIVE);
+    }
+
+    public function scopeType($query, $type) {
+        return $query->where('type', $type);
+    }
+
+    public function scopeVisible($query) {
+        return $query->where(function ($q) {
+            $q->whereNull('visible_from')->orWhere('visible_from', '<=', now());
+        })->where(function ($q) {
+            $q->whereNull('visible_until')->orWhere('visible_until', '>=', now());
+        });
+    }
+
+    // ─── Relationships ──────────────────────────────────────
+    public function company(): BelongsTo {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function createdBy(): BelongsTo {
+        return $this->belongsTo(Admin::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo {
+        return $this->belongsTo(Admin::class, 'updated_by');
+    }
+
+    // ─── Translations Relationship ──────────────────────────
+    public function translations(): HasMany {
+        return $this->hasMany(MenuItemTranslation::class);
+    }
+
+    // ─── Methods ──────────────────────────────────────────────
+    public function getTranslatedTitle(): string {
+        return $this->translate(app()->getLocale())?->title
+            ?? $this->translate('ar')?->title
+            ?? $this->title
+            ?? '-';
+    }
+
+    public function getTranslatedDescription(): ?string {
+        return $this->translate(app()->getLocale())?->description ?? $this->translate('ar')?->description;
+    }
+
+    public function getLink(): ?string {
+        return match ($this->link_type) {
+            'route' => $this->route_name ? route($this->route_name, $this->route_params ?? []) : null,
+            'url' => $this->url,
+            default => null,
+        };
+    }
+}
+------------------------
+// MenuItemStatus
+enum MenuItemStatus: string
+{
+    case ACTIVE = 'active';
+    case INACTIVE = 'inactive';
+
+    public function badge(): string
+    {
+        return match ($this) {
+            self::ACTIVE => '<span class="badge bg-success">' . trans('dashboard/menu_items.status_active') . '</span>',
+            self::INACTIVE => '<span class="badge bg-danger">' . trans('dashboard/menu_items.status_inactive') . '</span>',
+        };
+    }
+
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
+
+    public static function options(): array
+    {
+        return [
+            self::ACTIVE->value => trans('dashboard/menu_items.status_active'),
+            self::INACTIVE->value => trans('dashboard/menu_items.status_inactive'),
+        ];
+    }
+}
+------------------------------
+// Routes
+Route::get('menus/{menu}/structure', [Dashboard\MenuController::class, 'structure'])->name('menus.structure');
+            Route::post('menus/{menu}/structure/add-node', [Dashboard\MenuController::class, 'addNode'])->name('menus.structure.addNode');
+            Route::post('menus/{menu}/structure/save-tree', [Dashboard\MenuController::class, 'saveTree'])->name('menus.structure.saveTree');
+            Route::delete('menu-nodes/{menuNode}', [Dashboard\MenuController::class, 'removeNode'])->name('menus.structure.removeNode');
+
+            Route::patch('menus/{menu}/toggle-status', [Dashboard\MenuController::class, 'toggleStatus'])->name('menus.toggleStatus');
+            Route::patch('menus/{menu}/restore', [Dashboard\MenuController::class, 'restore'])->name('menus.restore');
+            Route::delete('menus/{menu}/force-delete', [Dashboard\MenuController::class, 'forceDelete'])->name('menus.forceDelete');
+            Route::post('menus/bulk-action', [Dashboard\MenuController::class, 'bulkAction'])->name('menus.bulkAction');
+            Route::get('menus/has-trashed', [Dashboard\MenuController::class, 'hasTrashed'])->name('menus.hasTrashed');
+            Route::resource('menus', Dashboard\MenuController::class)->except(['show']);
+
+            Route::get('menu_items/list', [Dashboard\MenuItemController::class, 'list'])->name('menu_items.list');
+            Route::patch('menu_items/{menu_item}/toggle-owner', [Dashboard\MenuItemController::class, 'toggleOwnerOnly'])->name('menu_items.toggleOwnerOnly');
+            Route::patch('menu_items/{menu_item}/toggle-status', [Dashboard\MenuItemController::class, 'toggleStatus'])->name('menu_items.toggleStatus');
+            Route::patch('menu_items/{menu_item}/restore', [Dashboard\MenuItemController::class, 'restore'])->name('menu_items.restore');
+            Route::delete('menu_items/{menu_item}/force-delete', [Dashboard\MenuItemController::class, 'forceDelete'])->name('menu_items.forceDelete');
+            Route::post('menu_items/bulk-action', [Dashboard\MenuItemController::class, 'bulkAction'])->name('menu_items.bulkAction');
+            Route::get('menu_items/has-trashed', [Dashboard\MenuItemController::class, 'hasTrashed'])->name('menu_items.hasTrashed');
+            Route::resource('menu_items', Dashboard\MenuItemController::class)->except(['show']);
+--------------------------------
+// MenuStructure blade
+@extends('dashboard.layouts.master')
+
+@push('css')
+<style>
+    .structure-panel {
+        min-height: 500px;
+    }
+
+    .available-items-list,
+    .tree-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+        min-height: 60px;
+    }
+
+    .tree-list.nested {
+        padding-right: 28px;
+        margin-top: 6px;
+        border-right: 2px dashed #dfe3e8;
+    }
+
+    .tree-node,
+    .available-item {
+        background: #fff;
+        border: 1px solid #e2e5ea;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: grab;
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .tree-node:hover,
+    .available-item:hover {
+        border-color: #6c5ce7;
+        box-shadow: 0 2px 8px rgba(108, 92, 231, 0.1);
+    }
+
+    .tree-node.sortable-ghost,
+    .available-item.sortable-ghost {
+        opacity: 0.4;
+        background: #f0eefe;
+    }
+
+    .tree-node.sortable-chosen {
+        box-shadow: 0 4px 14px rgba(108, 92, 231, 0.2);
+    }
+
+    .node-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .node-content i.drag-handle {
+        cursor: grab;
+        color: #b2b8c2;
+    }
+
+    .node-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 20px;
+    }
+
+    .empty-tree-placeholder {
+        border: 2px dashed #dfe3e8;
+        border-radius: 10px;
+        padding: 30px;
+        text-align: center;
+        color: #9aa1ab;
+    }
+    /* ─── منع تحديد النص أثناء السحب ────────────────────────── */
+    .tree-node,
+    .available-item,
+    .node-content,
+    .node-content span,
+    .node-content i {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    }
+
+    body.dragging-active {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: grabbing !important;
+    }
+
+    body.dragging-active * {
+    cursor: grabbing !important;
+    }
+
+    /* ─── تكبير وتوضيح مقبض السحب ─────────────────────────────── */
+    .node-content i.drag-handle {
+    cursor: grab;
+    color: #6c5ce7;
+    font-size: 20px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: #f0eefe;
+    flex-shrink: 0;
+    }
+
+    .node-content i.drag-handle:hover {
+    background: #e4dffc;
+    }
+
+    .node-content i.drag-handle:active {
+    cursor: grabbing;
+    }
+</style>
+@endpush
+
+@section('title')
+{{ trans('dashboard/menus.manage_structure') }} - {{ $menu->getTranslatedName() }}
+@endsection
+
+@section('content')
+<div class="page-content">
+    <div class="content-header">
+        <h1 class="mb-0">
+            {{ trans('dashboard/menus.manage_structure') }}: {{ $menu->getTranslatedName() }}
+        </h1>
+        <ul class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ route('admin.dashboard') }}">{{ trans('dashboard/header.main_dashboard') }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ route('admin.menus.index') }}">{{ trans('dashboard/menus.menus') }}</a>
+            </li>
+            <li class="breadcrumb-item">{{ trans('dashboard/menus.manage_structure') }}</li>
+        </ul>
+    </div>
+
+    <div class="row g-4">
+        {{-- ─── العناصر المتاحة ─────────────────────────────── --}}
+        {{--<div class="col-md-4">
+            <div class="card structure-panel">
+                <div class="card-header">
+                    <i class="ti ti-list-details me-2"></i>
+                    {{ trans('dashboard/menus.available_items') }}
+                </div>
+                <div class="card-body">
+                    <input type="text" id="searchAvailableItems" class="mb-3 form-control form-control-sm" placeholder="{{ trans('dashboard/general.search') }}...">
+                    <ul id="availableItemsList" class="available-items-list">
+                        @forelse($availableItems as $item)
+                        <li class="available-item" data-item-id="{{ $item->id }}"
+                            data-item-type="{{ $item->type->value ?? $item->type }}">
+                            <div class="node-content">
+                                <i class="ti ti-grip-vertical drag-handle"></i>
+                                @if($item->icon)
+                                <i class="{{ $item->icon }}"></i>
+                                @endif
+                                <span>{{ $item->getTranslatedTitle() }}</span>
+                            </div>
+                            <span class="badge bg-light text-dark node-badge">{{ $item->type->value ?? $item->type
+                                }}</span>
+                        </li>
+                        @empty
+                        <li class="py-4 text-center text-muted">
+                            {{ trans('dashboard/menus.no_available_items') }}
+                        </li>
+                        @endforelse
+                    </ul>
+                </div>
+            </div>
+        </div>--}}
+        {{-- ─── العناصر المتاحة ─────────────────────────────── --}}
+        <div class="col-md-4">
+            <div class="card structure-panel" id="itemsPanel" data-menu-id="{{ $menu->id }}">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span>
+                        <i class="ti ti-list-details me-2"></i>
+                        <span id="panelTitle">{{ trans('dashboard/menu_items.menu_items') }}</span>
+                    </span>
+                    <div class="gap-2 d-flex">
+                        <button type="button" class="btn btn-sm btn-light-primary" id="btnCreatePanelItem">
+                            <i class="ti ti-plus me-1"></i>
+                            {{ trans('dashboard/menu_items.create') }}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light-danger" id="btnTogglePanelTrashed"
+                            style="display:none;">
+                            <i class="ti ti-trash me-1"></i>
+                            <span id="panelTrashedBtnText">{{ trans('dashboard/menu_items.show_trashed') }}</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <input type="text" id="searchAvailableItems" class="mb-3 form-control form-control-sm"
+                        placeholder="{{ trans('dashboard/general.search') }}...">
+
+                    {{-- ─── شريط الإجراءات الجماعية ─────────────────────── --}}
+                    <div id="panelBulkBar"
+                        class="p-2 mb-2 bg-light border rounded d-none align-items-center justify-content-between">
+                        <span class="small">
+                            <span id="panelSelectedCount">0</span> {{ trans('dashboard/menu_items.selected') }}
+                        </span>
+                        <div class="gap-2 d-flex">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnBulkChangeStatus">
+                                <i class="ti ti-exchange me-1"></i>{{ trans('dashboard/menu_items.bulk_change_status') }}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="btnBulkDelete">
+                                <i class="ti ti-trash me-1"></i>{{ trans('dashboard/general.delete_selected') }}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success d-none" id="btnBulkRestore">
+                                <i class="ti ti-refresh me-1"></i>{{ trans('dashboard/menu_items.bulk_restore') }}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger d-none" id="btnBulkForceDelete">
+                                <i class="ti ti-trash-off me-1"></i>{{ trans('dashboard/menu_items.bulk_force_delete') }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <ul id="availableItemsList" class="available-items-list"></ul>
+
+                    <div id="panelLoader" class="py-3 text-center">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    </div>
+
+                    <div id="panelEmptyMsg" class="py-4 text-center text-muted d-none">
+                        {{ trans('dashboard/menus.no_available_items') }}
+                    </div>
+
+                    <div class="mt-2 text-center">
+                        <button type="button" class="btn btn-sm btn-light-primary d-none" id="btnLoadMore">
+                            {{ trans('dashboard/general.load_more') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- ─── شجرة القائمة ─────────────────────────────────── --}}
+        <div class="col-md-8">
+            <div class="card structure-panel">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="ti ti-sitemap me-2"></i>
+                        {{ trans('dashboard/menus.structure_tree') }}
+                    </span>
+                    <button type="button" class="btn btn-sm btn-primary" id="saveTreeBtn">
+                        <span class="indicator-label">
+                            <i class="ti ti-device-floppy me-1"></i>
+                            {{ trans('dashboard/general.save') }}
+                        </span>
+                        <span class="indicator-progress d-none">
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            {{ trans('dashboard/general.loading') }}
+                        </span>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="emptyTreePlaceholder" class="empty-tree-placeholder {{ !empty($tree) ? 'd-none' : '' }}">
+                        {{ trans('dashboard/menus.drag_items_here') }}
+                    </div>
+                    <ul id="treeRoot" class="tree-list" data-parent-id="">
+                        @include('dashboard.admin.menus.structure-node', ['nodes' => $tree])
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+@include('dashboard.admin.menu_items.panel.item-modal', compact('companies', 'locales', 'icons'))
+@include('dashboard.admin.menu_items.panel.confirm-modals')
+{{-- Confirm Remove Node Modal --}}
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    window.structureTranslations = {
+        confirmRemove: "{{ trans('dashboard/menus.confirm_remove_node') }}",
+        error: "{{ trans('dashboard/general.error_occurred') }}",
+        saved: "{{ trans('dashboard/menus.structure_updated') }}",
+        alreadyAdded: "{{ trans('dashboard/menus.item_already_added') }}",
+    };
+
+    window.panelTranslations = {
+        error: "{{ trans('dashboard/general.error_occurred') }}",
+        select_icon: "{{ trans('dashboard/menu_items.select_icon') }}",
+        confirm_delete: "{{ trans('dashboard/menu_items.delete_confirm') }}",
+        confirm_restore: "{{ trans('dashboard/menu_items.restore_confirm') }}",
+        confirm_force_delete: "{{ trans('dashboard/menu_items.force_delete_confirm') }}",
+        confirm_bulk_delete: "{{ trans('dashboard/menu_items.bulk_delete_confirm') }}",
+        confirm_bulk_restore: "{{ trans('dashboard/menu_items.bulk_restore_confirm') }}",
+        confirm_bulk_force_delete: "{{ trans('dashboard/menu_items.bulk_force_delete_confirm') }}",
+        select_at_least_one: "{{ trans('dashboard/menu_items.bulk_select_at_least_one') }}",
+        no_items: "{{ trans('dashboard/menus.no_available_items') }}",
+        created: "{{ trans('dashboard/menu_items.created_successfully') }}",
+        updated: "{{ trans('dashboard/menu_items.updated_successfully') }}",
+
+        // ─── جديد: نصوص كانت متحطة غلط جوه ملف JS ───────────────
+        menu_items_title: "{{ trans('dashboard/menu_items.menu_items') }}",
+        show_trashed_label: "{{ trans('dashboard/menu_items.show_trashed') }}",
+        show_active_label: "{{ trans('dashboard/menu_items.show_active') }}",
+        restore_label: "{{ trans('dashboard/menu_items.restore') }}",
+        force_delete_label: "{{ trans('dashboard/menu_items.force_delete') }}",
+        delete_label: "{{ trans('dashboard/general.delete') }}",
+        create_label: "{{ trans('dashboard/menu_items.create') }}",
+        edit_label: "{{ trans('dashboard/menu_items.edit') }}",
+        bulk_restore_label: "{{ trans('dashboard/menu_items.bulk_restore') }}",
+        bulk_force_delete_label: "{{ trans('dashboard/menu_items.bulk_force_delete') }}",
+        delete_selected_label: "{{ trans('dashboard/general.delete_selected') }}",
+    };
+
+    window.structureRoutes = {
+        addNode: "{{ route('admin.menus.structure.addNode', $menu->id) }}",
+        saveTree: "{{ route('admin.menus.structure.saveTree', $menu->id) }}",
+        removeNode: "{{ route('admin.menus.structure.removeNode', ['menuNode' => '__ID__']) }}",
+    };
+
+    window.panelRoutes = {
+        list: "{{ route('admin.menu_items.list') }}",
+        store: "{{ route('admin.menu_items.store') }}",
+        edit: "{{ route('admin.menu_items.edit', ['menu_item' => '__ID__']) }}",
+        update: "{{ route('admin.menu_items.update', ['menu_item' => '__ID__']) }}",
+        destroy: "{{ route('admin.menu_items.destroy', ['menu_item' => '__ID__']) }}",
+        restore: "{{ route('admin.menu_items.restore', ['menu_item' => '__ID__'], false) }}",
+        forceDelete: "{{ route('admin.menu_items.forceDelete', ['menu_item' => '__ID__'], false) }}",
+        toggleStatus: "{{ route('admin.menu_items.toggleStatus', ['menu_item' => '__ID__'], false) }}",
+        toggleOwner: "{{ route('admin.menu_items.toggleOwnerOnly', ['menu_item' => '__ID__'], false) }}",
+        hasTrashed: "{{ route('admin.menu_items.hasTrashed') }}",
+        bulkAction: "{{ route('admin.menu_items.bulkAction') }}",
+    };
+
+    window.panelMenuId = {{ $menu->id }};
+</script>
+
+<script src="{{ asset('dashboard/assets/js/custom/utils/alert.js') }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/menus/structure.js') }}?v={{ time() }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/menu_items/items.js') }}?v={{ time() }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/menu_items/item_trashed.js') }}?v={{ time() }}"></script>
+<script src="{{ asset('dashboard/assets/js/custom/admin/menu_items/item_switcher.js') }}?v={{ time() }}"></script>
+@endpush

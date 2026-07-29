@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 
 interface MenuItemRepositoryInterface
 {
+    public function list(Request $request);
+    public function toggleOwnerOnly(MenuItem $menuItem);
     public function index(MenuItemDataTable $menuItemDataTable);
     public function store(StoreMenuItemRequest $request);
     public function edit(MenuItem $menuItem);

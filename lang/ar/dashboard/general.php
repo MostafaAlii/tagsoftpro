@@ -1,5 +1,6 @@
 <?php
 return [
+    'load_more' => 'تحميل المزيد',
     'search' => 'بحث',
     'yes'                            =>                      'نعم',
     'no'                             =>                      'لا',

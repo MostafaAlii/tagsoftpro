@@ -7,7 +7,8 @@ return [
     'create' => 'إضافة عنصر قائمة جديد',
     'edit' => 'تعديل عنصر القائمة',
     'delete' => 'حذف عنصر القائمة',
-
+    'selected' => 'محدد',
+    'selected_items' => 'العناصر المحددة',
     // Fields
     'title' => 'العنوان',
     'description' => 'الوصف',
